@@ -220,6 +220,7 @@ export function renderWorkout(app) {
       </main>
 
       <footer class="dock">
+        <button class="dock-grab" data-action="load" aria-label="Weight and reps (or swipe up)"><span></span></button>
         ${restSheet(w, s)}
         <div class="sets" style="--n:${ex.sets}">${setButtons(ex, i, s)}</div>
         <nav class="navrow">
@@ -240,6 +241,36 @@ export function renderWorkout(app) {
   }
   viewer.start();
   startPolling();
+  bindDockSwipe(app.querySelector('.dock'));
+}
+
+// Swipe up on the sets panel pulls up the weight & reps sheet.
+let suppressTapUntil = 0;
+function bindDockSwipe(dock) {
+  let start = null;
+  dock.addEventListener(
+    'touchstart',
+    (e) => {
+      const t = e.touches[0];
+      start = { x: t.clientX, y: t.clientY };
+    },
+    { passive: true },
+  );
+  dock.addEventListener(
+    'touchmove',
+    (e) => {
+      if (!start) return;
+      const t = e.touches[0];
+      const dy = t.clientY - start.y;
+      if (dy < -36 && Math.abs(dy) > Math.abs(t.clientX - start.x) * 1.5) {
+        start = null;
+        suppressTapUntil = Date.now() + 500; // the finger lifting shouldn't tick a set
+        loadSheet();
+      }
+    },
+    { passive: true },
+  );
+  dock.addEventListener('touchend', () => (start = null), { passive: true });
 }
 
 export function leaveWorkout() {
@@ -295,6 +326,7 @@ function go(i, { announce = true } = {}) {
 }
 
 function toggleSet(i, j) {
+  if (Date.now() < suppressTapUntil) return;
   const w = currentWorkout();
   const s = state.session;
   if (s.done[i][j]) return setSheet(i, j);

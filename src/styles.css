@@ -2130,3 +2130,34 @@ select.field-input {
 .logger.in-sheet .logf-val input {
   flex: 0 1 140px;
 }
+
+/* Grab handle: tap or swipe up on the sets panel for weight & reps. */
+.workout .dock {
+  position: relative;
+  padding-top: 18px;
+}
+.dock-grab {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 96px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+}
+.dock-grab span {
+  width: 40px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--line);
+}
+.sheet-panel::before {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 5px;
+  margin: -6px auto 10px;
+  border-radius: 999px;
+  background: var(--line);
+}

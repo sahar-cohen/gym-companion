@@ -8,6 +8,40 @@ export function openSheet(html, { tall = false } = {}) {
     <div class="sheet-panel ${tall ? 'is-tall' : ''}" role="dialog" aria-modal="true">${html}</div>`;
   r.hidden = false;
   requestAnimationFrame(() => r.classList.add('is-open'));
+  bindSwipeDown(r.querySelector('.sheet-panel'));
+}
+
+// Drag a sheet down (from its top, when not scrolled) to dismiss it.
+function bindSwipeDown(panel) {
+  let y0 = null;
+  let dy = 0;
+  panel.addEventListener(
+    'touchstart',
+    (e) => {
+      y0 = panel.scrollTop <= 0 ? e.touches[0].clientY : null;
+      dy = 0;
+    },
+    { passive: true },
+  );
+  panel.addEventListener(
+    'touchmove',
+    (e) => {
+      if (y0 == null) return;
+      dy = Math.max(0, e.touches[0].clientY - y0);
+      if (dy > 0 && !e.target.closest('input, textarea, select')) {
+        panel.style.transition = 'none';
+        panel.style.transform = `translateY(${dy}px)`;
+      }
+    },
+    { passive: true },
+  );
+  panel.addEventListener('touchend', () => {
+    if (y0 == null) return;
+    panel.style.transition = '';
+    if (dy > 90) closeSheet();
+    else panel.style.transform = '';
+    y0 = null;
+  });
 }
 
 export function closeSheet() {
