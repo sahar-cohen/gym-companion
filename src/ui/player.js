@@ -44,10 +44,20 @@ function paint() {
   if (el) el.innerHTML = playerHTML();
 }
 
+// Spotify takes a moment to reflect a command. Polls that started before the
+// latest tap (or land within its settle window) are ignored so the optimistic
+// UI doesn't flicker back.
+let actionSeq = 0;
+let settleUntil = 0;
+
 export async function refreshPlayback() {
   if (!state.spotify.connected) return;
+  const seq = actionSeq;
+  if (Date.now() < settleUntil) return;
   try {
-    state.spotify.playback = await sp.playback();
+    const pb = await sp.playback();
+    if (seq !== actionSeq || Date.now() < settleUntil) return;
+    state.spotify.playback = pb;
     state.spotify.error = null;
   } catch (e) {
     state.spotify.error = e.reason || e.message;
@@ -88,11 +98,24 @@ export async function initSpotify() {
   }
 }
 
-async function control(fn, toast) {
+let busy = false;
+
+// optimistic(): update the UI right away; returns an undo for failures.
+async function control(fn, toast, { optimistic, settle = 1500 } = {}) {
+  if (busy) return; // ignore double taps while a command is in flight
+  busy = true;
+  actionSeq++;
+  settleUntil = Date.now() + settle;
+  const undo = optimistic?.();
+  paint();
   try {
     await fn();
-    setTimeout(refreshPlayback, 350);
+    // Check Spotify's real state once it has caught up.
+    setTimeout(refreshPlayback, settle + 50);
   } catch (e) {
+    undo?.();
+    settleUntil = 0;
+    paint();
     if (e.reason === 'PREMIUM_REQUIRED') {
       state.spotify.premium = false;
       paint();
@@ -102,14 +125,28 @@ async function control(fn, toast) {
     } else {
       toast?.('Spotify didn’t respond');
     }
+  } finally {
+    busy = false;
   }
+}
+
+function togglePlaying() {
+  const pb = state.spotify.playback;
+  if (!pb) return undefined;
+  const was = pb.is_playing;
+  pb.is_playing = !was;
+  return () => (pb.is_playing = was);
 }
 
 export function playerActions(toast) {
   return {
-    'sp-toggle': () => control(() => (state.spotify.playback?.is_playing ? sp.pause() : sp.play()), toast),
-    'sp-next': () => control(sp.next, toast),
-    'sp-prev': () => control(sp.previous, toast),
+    'sp-toggle': () => {
+      const playing = state.spotify.playback?.is_playing;
+      control(() => (playing ? sp.pause() : sp.play()), toast, { optimistic: togglePlaying });
+    },
+    // Track changes show up a bit later; refresh once they have.
+    'sp-next': () => control(sp.next, toast, { settle: 900 }),
+    'sp-prev': () => control(sp.previous, toast, { settle: 900 }),
     'sp-start': () => {
       const pl = currentWorkout()?.playlist;
       if (pl) control(() => sp.playPlaylist(pl.id), toast);

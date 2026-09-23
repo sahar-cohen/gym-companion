@@ -133,8 +133,15 @@ async function api(path, { method = 'GET', body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
   if (res.status === 204 || res.status === 202) return null;
+  // Player commands can answer with a non-JSON body (e.g. a snapshot id);
+  // a 2xx is success whatever the body says.
   const text = await res.text();
-  const json = text ? JSON.parse(text) : null;
+  let json = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
   if (!res.ok) throw new SpotifyError(res.status, json?.error?.reason, json?.error?.message);
   return json;
 }
