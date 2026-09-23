@@ -7,8 +7,9 @@ let primed = false;
 function pickVoice() {
   const voices = synth?.getVoices() ?? [];
   const en = voices.filter((v) => /^en[-_]/i.test(v.lang));
+  // Fallback only (recorded clips are preferred): pick a male voice if one exists.
   voice =
-    en.find((v) => /Samantha|Daniel|Karen|Serena|Google US English/i.test(v.name) && v.localService) ??
+    en.find((v) => /Daniel|Aaron|Arthur|Evan|Nathan|Tom|Reed|Oliver|Alex|Fred|Gordon|Male/i.test(v.name)) ??
     en.find((v) => v.default) ??
     en[0] ??
     null;

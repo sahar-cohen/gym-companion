@@ -6,7 +6,7 @@ import { save } from '../lib/storage.js';
 import { newSession, blocks, afterSet, doneCount, isComplete, totals, supersetLabel } from '../lib/session.js';
 import { keepAwake, chime, tick, buzz, haptic } from '../lib/device.js';
 import { lastFor, seriesFor, volume, toRecord, addRecord, bestBefore } from '../lib/history.js';
-import * as voice from '../lib/voice.js';
+import { coach, stop as stopCoach, preload as preloadCoach } from '../lib/coach.js';
 import { icon } from '../ui/icons.js';
 import { openSheet, closeSheet, confirmSheet, sheetHead } from '../ui/sheets.js';
 import { progressChart } from '../ui/chart.js';
@@ -16,7 +16,12 @@ let shownKey = null;
 
 // ---------- Helpers ----------
 
-const speak = (text, opts) => state.settings.voice && voice.say(text, opts);
+// Voice coach, only when enabled.
+const say = (fn, ...args) => {
+  if (!state.settings.voice) return;
+  preloadCoach();
+  coach[fn](...args);
+};
 
 // Current weight/reps for the next set of exercise i.
 function draftFor(i) {
@@ -53,9 +58,8 @@ function upNext(w, s) {
   return n >= 0 ? w.exercises[n].name : null;
 }
 
-function announceExercise(i, prefix = '') {
-  const ex = currentWorkout().exercises[i];
-  speak(`${prefix}${ex.name}. ${voice.doseText(ex, ex.bodyweight ? 0 : draftFor(i).w)}.`);
+function announceExercise(i, first = false) {
+  say(first ? 'start' : 'exercise', currentWorkout().exercises[i]);
 }
 
 let toastTimer;
@@ -290,7 +294,7 @@ export function startWorkout(workoutId) {
   state.screen = 'workout';
   keepAwake(true);
   render();
-  announceExercise(0, 'Let’s go. First up: ');
+  announceExercise(0, true);
   autoStartPlaylist(w, showToast);
 }
 
@@ -310,8 +314,8 @@ export function finishWorkout() {
   persistSession();
   keepAwake(false);
   closeSheet();
-  voice.stop();
-  speak('Workout complete. Nice work.');
+  stopCoach();
+  say('done');
   state.screen = 'done';
   render();
 }
@@ -342,10 +346,10 @@ function toggleSet(i, j) {
   if (rest) {
     const dur = restFor(w.exercises[i]);
     s.rest = { forEx: i, startedAt: Date.now(), duration: dur, endsAt: Date.now() + dur * 1000 };
-    speak(`Rest ${dur} seconds. ${changed ? 'Next exercise: ' : 'Next: '}${nx.name}, set ${setNo} of ${nx.sets}.`);
+    say('rest', nx, setNo, changed);
   } else {
     s.rest = null;
-    speak(`Now ${nx.name}, set ${setNo}. ${String(nx.reps).replace('–', ' to ')} reps.`);
+    say('now', nx, setNo);
   }
   persistSession();
   render();
@@ -407,7 +411,7 @@ function endRest(completed, lateSec = 0) {
   if (state.settings.sound) chime();
   if (state.settings.vibrate) buzz();
   flash('Go', `${ex.name} · set ${setNo}`);
-  setTimeout(() => speak(`Go. ${ex.name}, set ${setNo}.`), 450);
+  setTimeout(() => say('go', ex, setNo), 450);
 }
 
 // ---------- History sheet ----------
@@ -563,7 +567,7 @@ export const workoutActions = {
   'rest-plus': () => adjustRest(15),
   'rest-minus': () => adjustRest(-15),
   'rest-skip': () => {
-    voice.stop();
+    stopCoach();
     endRest(false);
   },
   variant: (el) => {
@@ -582,8 +586,8 @@ export const workoutActions = {
   'voice-toggle': () => {
     state.settings.voice = !state.settings.voice;
     saveSettings();
-    if (!state.settings.voice) voice.stop();
-    else speak('Voice coach on.');
+    if (!state.settings.voice) stopCoach();
+    else say('voiceOn');
     render();
   },
   'dismiss-flash': () => document.querySelector('.go-flash')?.remove(),
@@ -619,8 +623,8 @@ export function clockTick() {
   if (sec === lastSpoken || document.visibilityState !== 'visible') return;
   lastSpoken = sec;
   if (state.settings.voice) {
-    if (sec === 10 && s.rest.duration > 20) voice.say('10 seconds');
-    else if (sec <= 3) voice.say(String(sec));
+    if (sec === 10 && s.rest.duration > 20) say('tenSeconds');
+    else if (sec <= 3) say('count', sec);
   } else if (sec <= 3 && state.settings.sound) {
     tick();
   }

@@ -10,7 +10,7 @@ Installable as a PWA and works offline.
 - One exercise at a time: 3D demo (drag/pinch), primary and secondary muscles, form cues
 - Log weight and reps per set; "Last time" line; per-exercise progress chart
 - Rest timer (auto, ±15 s remembered per exercise), supersets, skip/jump
-- Voice coach: announces exercises, rest and the last 3 seconds
+- Voice coach: a recorded male voice (ElevenLabs "Adam") announces exercises, rest and the last 3 seconds; works offline
 - Summary: time, sets, volume, personal bests, and a 3D body map
 - Editor: add or edit workouts and exercises, supersets, demo, muscles, playlist
 - Spotify: now playing, play/pause/skip, and auto-start a playlist per workout
@@ -40,6 +40,16 @@ What iOS allows a web app, and how this app works around it:
 | No vibration API | Haptic tick on taps (iOS 17.4–26.4); a full-screen **Go** flash plus sound and voice when rest ends |
 | Web audio can stop Spotify | Audio session set to "transient": cues play over your music and briefly lower it |
 | Silent switch mutes web sounds | The voice coach and the visual flash still work. Turn the ringer on for the chime. |
+
+## Coach voice
+
+The coach lines are pre-recorded clips in `public/voice/`, generated from
+`scripts/voice-script.json` (ElevenLabs, voice "Adam", model eleven_multilingual_v2).
+The app joins clips like "Rest. Next up…" + "T-bar row." + "Set two of three."
+Exercises without a recording (e.g. ones added in the editor) fall back to the
+phone's built-in voice. To add recordings for new exercises, add lines to the
+script, generate them with the same voice, save as `public/voice/<key>.mp3`
+(slash → underscore) and regenerate `src/data/voice-clips.js`.
 
 ## Spotify setup (one time, ~3 minutes)
 

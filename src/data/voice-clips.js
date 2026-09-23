@@ -1,0 +1,117 @@
+// Generated from scripts/voice-script.json. Recorded coach lines (ElevenLabs, voice: Adam - Authentic & Engaging Conversationalist).
+// Each key maps to public/voice/<key with / → _>.mp3. intros record the dose each i/<id> clip says.
+export const CLIP_TEXT = {
+  "p/lets-go": "Let's go! First up...",
+  "p/rest-next": "Rest. Next up...",
+  "p/rest-next-ex": "Rest. Next exercise...",
+  "p/now": "Now...",
+  "p/next-ex": "Next exercise...",
+  "p/10s": "Ten seconds.",
+  "p/3": "Three.",
+  "p/2": "Two.",
+  "p/1": "One.",
+  "p/go": "Go!",
+  "p/done": "Workout complete. Nice work!",
+  "p/voice-on": "Voice coach on.",
+  "s/1-of-2": "Set one of two.",
+  "s/2-of-2": "Set two of two.",
+  "s/1-of-3": "Set one of three.",
+  "s/2-of-3": "Set two of three.",
+  "s/3-of-3": "Set three of three.",
+  "s/1-of-4": "Set one of four.",
+  "s/2-of-4": "Set two of four.",
+  "s/3-of-4": "Set three of four.",
+  "s/4-of-4": "Set four of four.",
+  "s/1-of-5": "Set one of five.",
+  "s/2-of-5": "Set two of five.",
+  "s/3-of-5": "Set three of five.",
+  "s/4-of-5": "Set four of five.",
+  "s/5-of-5": "Set five of five.",
+  "n/lunge-db": "Lunge, dumbbell in one hand.",
+  "i/lunge-db": "Lunge, dumbbell in one hand. Three sets of twelve, per leg.",
+  "n/t-bar-row": "T-bar row.",
+  "i/t-bar-row": "T-bar row. Three sets of ten.",
+  "n/incline-db-press": "Low-incline dumbbell press.",
+  "i/incline-db-press": "Low-incline dumbbell press. Three sets of twelve.",
+  "n/lateral-raise": "Standing lateral raise.",
+  "i/lateral-raise": "Standing lateral raise. Three sets of ten.",
+  "n/rear-delt-fly": "Seated bent-over rear delt fly.",
+  "i/rear-delt-fly": "Seated bent-over rear delt fly. Three sets of twelve.",
+  "n/machine-curl": "Machine biceps curl.",
+  "i/machine-curl": "Machine biceps curl. Three sets of eight to ten.",
+  "n/knee-raise": "Knee raises.",
+  "i/knee-raise": "Knee raises. Three sets of twelve.",
+  "n/face-pull": "Rear delt pull. Face pull.",
+  "i/face-pull": "Rear delt pull. Face pull. Three sets of twelve.",
+  "n/single-arm-pulldown": "Single-arm cable lat pulldown.",
+  "i/single-arm-pulldown": "Single-arm cable lat pulldown. Three sets of ten, per arm.",
+  "n/seated-cable-row": "Seated cable row.",
+  "i/seated-cable-row": "Seated cable row. Three sets of ten.",
+  "n/db-row-bench": "One-arm dumbbell row on bench.",
+  "i/db-row-bench": "One-arm dumbbell row on bench. Three sets of ten, per arm.",
+  "n/preacher-curl": "Preacher curl, one arm.",
+  "i/preacher-curl": "Preacher curl, one arm. Three sets of ten, per arm."
+};
+
+export const INTRO_DOSE = {
+  "lunge-db": {
+    "sets": 3,
+    "reps": "12",
+    "repsNote": "per leg"
+  },
+  "t-bar-row": {
+    "sets": 3,
+    "reps": "10",
+    "repsNote": null
+  },
+  "incline-db-press": {
+    "sets": 3,
+    "reps": "12",
+    "repsNote": null
+  },
+  "lateral-raise": {
+    "sets": 3,
+    "reps": "10",
+    "repsNote": null
+  },
+  "rear-delt-fly": {
+    "sets": 3,
+    "reps": "12",
+    "repsNote": null
+  },
+  "machine-curl": {
+    "sets": 3,
+    "reps": "8–10",
+    "repsNote": null
+  },
+  "knee-raise": {
+    "sets": 3,
+    "reps": "12",
+    "repsNote": null
+  },
+  "face-pull": {
+    "sets": 3,
+    "reps": "12",
+    "repsNote": null
+  },
+  "single-arm-pulldown": {
+    "sets": 3,
+    "reps": "10",
+    "repsNote": "per arm"
+  },
+  "seated-cable-row": {
+    "sets": 3,
+    "reps": "10",
+    "repsNote": null
+  },
+  "db-row-bench": {
+    "sets": 3,
+    "reps": "10",
+    "repsNote": "per arm"
+  },
+  "preacher-curl": {
+    "sets": 3,
+    "reps": "10",
+    "repsNote": "per arm"
+  }
+};

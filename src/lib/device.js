@@ -46,6 +46,23 @@ function unlock() {
 }
 window.addEventListener('pointerdown', unlock, { passive: true });
 
+// Shared AudioContext (null until the first tap has created it).
+export const audioContext = () => (ctx && ctx.state !== 'closed' ? ctx : null);
+
+// Resolves once audio can play (the first tap starts it; resuming is async).
+export async function audioReady() {
+  const c = audioContext();
+  if (!c) return null;
+  if (c.state !== 'running') {
+    try {
+      await c.resume();
+    } catch {
+      return null;
+    }
+  }
+  return c.state === 'running' ? c : null;
+}
+
 export function chime() {
   if (!ctx || ctx.state !== 'running') return;
   const t0 = ctx.currentTime;
