@@ -7,7 +7,7 @@ import { keepAwake, haptic } from '../lib/device.js';
 import { coach, stop as stopCoach, preload as preloadCoach } from '../lib/coach.js';
 import { icon } from '../ui/icons.js';
 import { openSheet, closeSheet, sheetHead } from '../ui/sheets.js';
-import { techniqueNotes, stageHtml, mountStage, forgetStage, musclesSheet } from '../ui/technique.js';
+import { stageHtml, mountStage, forgetStage } from '../ui/technique.js';
 
 // Voice coach, only when enabled.
 const say = (fn, ...args) => {
@@ -89,7 +89,6 @@ export function renderWorkout(app) {
           ${supersetLine(w, i)}
         </div>
         ${stageHtml(ex)}
-        <div class="tech">${techniqueNotes(ex)}</div>
       </main>
 
       <footer class="dock">
@@ -233,7 +232,6 @@ export const workoutActions = {
     render();
   },
   'reset-view': () => getViewer().resetView(),
-  muscles: () => musclesSheet(resolve(currentWorkout().exercises[state.session.exIndex])),
 };
 
 // Voice toggled from a switch (overview sheet or settings).

@@ -15,6 +15,7 @@ import { renderWorkout, leaveWorkout, workoutActions, onVoiceSetting } from './s
 import { renderSummary, summaryActions } from './screens/summary.js';
 import { renderEditor, editorActions, onEditorInput } from './screens/editor.js';
 import { settingsActions, setApplyTheme, importData } from './screens/settings.js';
+import { stageActions } from './ui/technique.js';
 
 registerSW({ immediate: true });
 
@@ -60,6 +61,7 @@ const actions = {
   ...summaryActions,
   ...editorActions,
   ...settingsActions,
+  ...stageActions,
   'close-sheet': closeSheet,
 };
 

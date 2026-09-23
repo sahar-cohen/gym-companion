@@ -7,7 +7,7 @@ import { muscleName } from '../data/muscles.js';
 import { save } from '../lib/storage.js';
 import { icon } from '../ui/icons.js';
 import { openSheet, closeSheet, sheetHead } from '../ui/sheets.js';
-import { techniqueNotes, stageHtml, mountStage, musclesSheet } from '../ui/technique.js';
+import { stageHtml, mountStage } from '../ui/technique.js';
 import { startCustom, showToast } from './workout.js';
 
 const norm = (s) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9 ]/g, '');
@@ -123,8 +123,7 @@ export function renderExercise(app) {
             ${fromLib ? '<span class="ex-note">typical</span>' : ''}
           </div>
         </div>
-        ${stageHtml(ex, 'ex-muscles')}
-        <div class="tech">${techniqueNotes(ex)}</div>
+        ${stageHtml(ex)}
       </main>
       ${
         fromLib
@@ -204,7 +203,6 @@ export const libraryActions = {
     if (el.dataset.sheet) state.picks.length ? traySheet() : closeSheet();
   },
   tray: traySheet,
-  'ex-muscles': () => musclesSheet(resolve(detailExercise())),
   'tray-move': (el) => {
     const i = +el.dataset.i;
     const j = i + +el.dataset.d;

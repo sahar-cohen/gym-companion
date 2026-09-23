@@ -5,6 +5,7 @@ import { ANIMATIONS, sample, standingPose } from './animations.js';
 import { buildProps, setPropColors } from './props.js';
 
 const DEG = Math.PI / 180;
+const BASE_FOV = 32;
 
 const THEMES = {
   light: {
@@ -55,7 +56,7 @@ export class Viewer {
     this.el.className = 'viewer-canvas';
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(32, 1, 0.05, 50);
+    this.camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.05, 50);
 
     this.hemi = new THREE.HemisphereLight(0xffffff, 0xb9b4aa, 1.6);
     this.scene.add(this.hemi);
@@ -117,6 +118,10 @@ export class Viewer {
     this.el.style.width = '100%';
     this.el.style.height = '100%';
     this.camera.aspect = w / h;
+    // Tall stages: widen the view so side-on setups (benches, bars) aren't cropped.
+    const minAspect = 0.9;
+    const t = Math.tan((BASE_FOV / 2) * DEG) * Math.max(1, minAspect / this.camera.aspect);
+    this.camera.fov = (2 * Math.atan(t)) / DEG;
     this.camera.updateProjectionMatrix();
   }
 

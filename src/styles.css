@@ -2352,53 +2352,43 @@ body[data-screen='exercise'] #app {
 .ss-line b {
   color: var(--ink);
 }
-.tech {
-  flex: none;
-  max-height: 40%;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  margin-top: 10px;
-  padding: 14px 16px;
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-.tech .sheet-sub:first-child {
-  margin-top: 0;
-}
-.tech .cues {
-  margin-top: 8px;
-  gap: 6px;
-}
-.tech .cues li {
-  font-size: 16px;
-}
 .avoid {
   list-style: none;
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
 .avoid li {
   display: flex;
   gap: 12px;
   align-items: baseline;
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.35;
-  color: var(--muted);
 }
 .avoid li::before {
   content: '×';
   width: 14px;
   flex: none;
   font-weight: 700;
-  color: var(--muted);
+  color: var(--accent);
 }
-.tech .confirm-note {
-  margin: 0 0 10px;
+
+/* Form / Avoid pills on the stage */
+.stage-top .tip-row {
+  display: flex;
+  gap: 8px;
+}
+.tip-pill {
+  padding: 0 18px;
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.stage-top {
+  align-items: center;
 }
 
 .done-row {
@@ -2442,15 +2432,7 @@ body[data-screen='exercise'] #app {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
 }
 
-@media (max-height: 700px) {
-  .tech {
-    max-height: 34%;
-  }
-  .tech .cues li,
-  .avoid li {
-    font-size: 15px;
-  }
-}
+
 .exercise .stage-hint {
   top: 56px;
   bottom: auto;
