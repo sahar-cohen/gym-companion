@@ -136,20 +136,17 @@ function restSheet(w, s) {
   const left = (r.endsAt - Date.now()) / 1000;
   const fresh = Date.now() - (r.startedAt ?? 0) < 500;
   return `<section class="rest ${fresh ? 'is-new' : ''}" aria-live="polite">
-    <div class="rest-head">
-      <div class="rest-head-text">
-        <span class="eyebrow">Rest</span>
-        <span class="rest-next">Next: <b>${esc(ex.name)}</b> · ${next}</span>
-      </div>
-      <button class="btn btn-ink btn-sm" data-action="rest-skip">Skip</button>
-    </div>
-    <div class="rest-row">
+    <div class="rest-main">
       <button class="round-btn" data-action="rest-minus" aria-label="15 seconds less">−15</button>
-      <div class="rest-time" id="rest-time">${fmtClock(left)}</div>
+      <div class="rest-center">
+        <span class="eyebrow">Rest</span>
+        <div class="rest-time" id="rest-time">${fmtClock(left)}</div>
+      </div>
       <button class="round-btn" data-action="rest-plus" aria-label="15 seconds more">+15</button>
+      <button class="btn btn-ink btn-sm rest-skip" data-action="rest-skip">Skip</button>
     </div>
     <div class="rest-bar"><span id="rest-fill" style="width:${Math.max(0, Math.min(1, left / r.duration)) * 100}%"></span></div>
-    ${r.adjusted ? `<div class="rest-saved">Saved ${restFor(w.exercises[r.forEx])}s rest for ${esc(w.exercises[r.forEx].name)}</div>` : ''}
+    <div class="rest-next">Next: <b>${esc(ex.name)}</b> · ${next}</div>
   </section>`;
 }
 
@@ -221,7 +218,7 @@ export function renderWorkout(app) {
 
       <footer class="dock">
         ${restSheet(w, s)}
-        ${s.rest ? '' : logger(ex, i)}
+        ${logger(ex, i)}
         <div class="sets" style="--n:${ex.sets}">${setButtons(ex, i, s)}</div>
         <nav class="navrow">
           <button class="nav-btn" data-action="prev" ${i === 0 ? 'disabled' : ''} aria-label="Previous exercise">${icon.prev}<span>Prev</span></button>
@@ -354,9 +351,9 @@ function adjustRest(delta) {
   save('restOverrides', state.restOverrides);
   r.endsAt = Math.max(Date.now() + 1000, r.endsAt + delta * 1000);
   r.duration = Math.max(15, r.duration + delta);
-  r.adjusted = true;
   persistSession();
   render();
+  showToast(`${ex.name}: ${restFor(ex)}s rest from now on`);
 }
 
 function endRest(completed, lateSec = 0) {

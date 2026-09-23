@@ -2015,3 +2015,43 @@ select.field-input {
 .sheet-gap {
   margin-top: 18px;
 }
+
+/* Compact rest card: one row, so the logger stays visible during rest. */
+.rest-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rest-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+.rest-center .eyebrow {
+  color: var(--accent);
+  font-size: 12px;
+}
+.workout .rest .rest-time {
+  font-size: 54px;
+}
+.workout .rest .round-btn {
+  width: 48px;
+  height: 48px;
+  font-size: 17px;
+}
+.rest-skip {
+  min-height: 48px;
+  padding: 0 16px;
+}
+.rest .rest-bar {
+  margin-top: 8px;
+}
+.rest .rest-next {
+  margin-top: 6px;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
