@@ -8,7 +8,7 @@ import { state, setRender, render, validSession, saveSettings } from './app/stat
 import { existingViewer } from './app/viewer.js';
 import { keepAwake } from './lib/device.js';
 import { handleRedirect } from './lib/spotify.js';
-import { closeSheet } from './ui/sheets.js';
+import { closeSheet, resetScroll } from './ui/sheets.js';
 import { playerActions, initSpotify } from './ui/player.js';
 import { renderHome, homeActions } from './screens/home.js';
 import { renderWorkout, leaveWorkout, workoutActions, onLogInput, clockTick, showToast } from './screens/workout.js';
@@ -89,6 +89,11 @@ document.addEventListener('input', (e) => {
   if (t.dataset?.log) onLogInput(t);
   else if (t.dataset?.edit) onEditorInput(t);
   else if (t.dataset?.settingText !== undefined) onSettingText(t);
+});
+
+// When the iOS keyboard closes it can leave the page shifted up.
+document.addEventListener('focusout', (e) => {
+  if (e.target.matches?.('input, textarea')) setTimeout(resetScroll, 60);
 });
 
 // Enter / "done" on the number pad closes the keyboard.

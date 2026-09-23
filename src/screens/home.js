@@ -81,12 +81,12 @@ export function renderHome(app) {
     : '';
 
   const recentList = recent.length
-    ? `<h2 class="section-title">Recent</h2>
+    ? `<div class="section-row"><h2 class="section-title">Recent</h2><button class="linkbtn-inline" data-action="history-all">All history</button></div>
        <div class="recent">${recent
          .map((r) => {
            const sets = r.exercises.reduce((n, e) => n + e.sets.length, 0);
            return `<button class="recent-row" data-action="open-summary" data-id="${r.id}">
-             <span><b>${esc(r.workoutName)}</b><small>${daysAgo(r.startedAt)} · ${sets} sets</small></span>${icon.next}
+             <span><b>${esc(r.workoutName)}</b><small>${daysAgo(r.startedAt)} · ${sets} set${sets === 1 ? '' : 's'}</small></span>${icon.next}
            </button>`;
          })
          .join('')}</div>`

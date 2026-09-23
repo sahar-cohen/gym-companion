@@ -1,9 +1,11 @@
 import { state, render } from '../app/state.js';
-import { esc, fmtDuration, fmtKg, fmtDate } from '../app/util.js';
+import { esc, fmtDuration, fmtKg, fmtDate, daysAgo } from '../app/util.js';
 import { getViewer } from '../app/viewer.js';
 import { muscleName } from '../data/muscles.js';
-import { muscleLoad, volume, allHistory } from '../lib/history.js';
+import { muscleLoad, volume, allHistory, removeRecord } from '../lib/history.js';
 import { icon } from '../ui/icons.js';
+import { openSheet, closeSheet, confirmSheet, sheetHead } from '../ui/sheets.js';
+import { showToast } from './workout.js';
 
 export function renderSummary(app) {
   const r = state.summary;
@@ -58,6 +60,11 @@ export function renderSummary(app) {
         )
         .join('')}</ol>
       <p class="mnote">Set counts: primary muscle = 1 per set, secondary = ½.</p>
+      ${
+        allHistory().some((x) => x.id === r.id)
+          ? `<button class="btn btn-danger-ghost btn-block summary-delete" data-action="delete-record" data-id="${r.id}">${icon.trash}<span>Delete from history</span></button>`
+          : ''
+      }
 
       <div class="home-dock"><button class="btn btn-primary btn-xl" data-action="home">Done</button></div>
     </div>`;
@@ -68,7 +75,47 @@ export function renderSummary(app) {
   viewer.start();
 }
 
+// Every saved workout, newest first, with delete.
+function historyListSheet() {
+  const all = allHistory();
+  const rows = all
+    .map((r) => {
+      const sets = r.exercises.reduce((n, e) => n + e.sets.length, 0);
+      return `<div class="hl-row">
+        <button class="hl-main" data-action="open-summary" data-id="${r.id}">
+          <b>${esc(r.workoutName)}</b><small>${fmtDate(r.startedAt, true)} · ${daysAgo(r.startedAt)} · ${sets} set${sets === 1 ? '' : 's'}</small>
+        </button>
+        <button class="icon-btn sm" data-action="delete-record" data-id="${r.id}" aria-label="Delete ${esc(r.workoutName)} from ${fmtDate(r.startedAt)}">${icon.trash}</button>
+      </div>`;
+    })
+    .join('');
+  openSheet(`${sheetHead('History')}${all.length ? `<div class="hl-list">${rows}</div>` : '<p class="sheet-text">No saved workouts yet.</p>'}`, { tall: true });
+}
+
 export const summaryActions = {
+  'history-all': historyListSheet,
+  'delete-record': (el) => {
+    const r = allHistory().find((x) => x.id === el.dataset.id);
+    if (!r) return;
+    confirmSheet(
+      'Delete this workout?',
+      `${esc(r.workoutName)}, ${fmtDate(r.startedAt, true)}. It’s removed from your history, progress charts and “last time”. This can’t be undone.`,
+      'Delete',
+      'delete-record-yes',
+      { danger: true, data: `data-id="${r.id}"` },
+    );
+  },
+  'delete-record-yes': (el) => {
+    removeRecord(el.dataset.id);
+    closeSheet();
+    if (state.screen === 'done') {
+      state.summary = null;
+      state.screen = 'home';
+    }
+    render();
+    showToast('Deleted from history');
+    if (state.screen === 'home' && allHistory().length) historyListSheet();
+  },
   home: () => {
     state.summary = null;
     state.screen = 'home';
@@ -77,6 +124,7 @@ export const summaryActions = {
   'open-summary': (el) => {
     const r = allHistory().find((x) => x.id === el.dataset.id);
     if (!r) return;
+    closeSheet();
     state.summary = r;
     state.screen = 'done';
     render();

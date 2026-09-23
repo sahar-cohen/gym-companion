@@ -108,6 +108,7 @@ h2 {
   padding: calc(env(safe-area-inset-top) + 22px) var(--gutter) 0;
 }
 /* The workout screen never scrolls as a page (scrolling triggers the blur). */
+html:has(body[data-screen='workout']),
 body[data-screen='workout'] {
   overflow: hidden;
   overscroll-behavior: none;
@@ -2160,4 +2161,50 @@ select.field-input {
   margin: -6px auto 10px;
   border-radius: 999px;
   background: var(--line);
+}
+
+.end-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.summary-delete {
+  margin-top: 18px;
+}
+.section-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.linkbtn-inline {
+  font-weight: 600;
+  color: var(--accent);
+  padding: 10px 0 10px 12px;
+}
+.hl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hl-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 60px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  text-align: left;
+}
+.hl-main small {
+  color: var(--muted);
+  font-size: 14px;
 }

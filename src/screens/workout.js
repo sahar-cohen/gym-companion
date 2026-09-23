@@ -199,9 +199,6 @@ export function renderWorkout(app) {
           <div class="ex-meta">
             <span class="ex-dose">${ex.sets} × ${esc(ex.reps)}</span>
             ${ex.repsNote ? `<span class="ex-note">${esc(ex.repsNote)}</span>` : ''}
-            <button class="loadchip ${!ex.bodyweight && !draftFor(i).w ? 'is-empty' : ''}" data-action="load" aria-label="Change weight and reps">
-              <span>${!ex.bodyweight && !draftFor(i).w ? 'Set weight' : loadLabel(ex, draftFor(i))}</span>${icon.edit}
-            </button>
           </div>
         </div>
 
@@ -266,13 +263,16 @@ function bindDockSwipe(dock) {
       if (!start) return;
       const t = e.touches[0];
       const dy = t.clientY - start.y;
+      const vertical = Math.abs(dy) > Math.abs(t.clientX - start.x);
+      // Keep iOS from scrolling the page underneath (that shifted the header off-screen).
+      if (vertical && e.cancelable) e.preventDefault();
       if (dy < -36 && Math.abs(dy) > Math.abs(t.clientX - start.x) * 1.5) {
         start = null;
         suppressTapUntil = Date.now() + 500; // the finger lifting shouldn't tick a set
         loadSheet();
       }
     },
-    { passive: true },
+    { passive: false },
   );
   dock.addEventListener('touchend', () => (start = null), { passive: true });
 }
@@ -318,6 +318,35 @@ export function finishWorkout() {
   say('done');
   state.screen = 'done';
   render();
+}
+
+// Ending early: save what was logged, or throw the session away (e.g. a demo).
+function endSheet() {
+  const t = totals(state.session);
+  const logged = t.done > 0;
+  openSheet(`
+    <div class="sheet-head"><h2>End workout?</h2></div>
+    <p class="sheet-text">${
+      logged
+        ? `${t.done} of ${t.total} sets done. Save them to your history, or discard this session if it wasn’t a real workout.`
+        : 'No sets logged yet, so there’s nothing to save.'
+    }</p>
+    <div class="end-actions">
+      ${logged ? `<button class="btn btn-primary btn-block" data-action="finish">Save workout</button>` : ''}
+      <button class="btn btn-danger-ghost btn-block" data-action="discard-workout">${icon.trash}<span>Discard, don’t save</span></button>
+      <button class="btn btn-ghost btn-block" data-action="close-sheet">Keep going</button>
+    </div>`);
+}
+
+function discardWorkout() {
+  state.session = null;
+  persistSession();
+  keepAwake(false);
+  stopCoach();
+  closeSheet();
+  state.screen = 'home';
+  render();
+  showToast('Workout discarded, nothing saved');
 }
 
 function go(i, { announce = true } = {}) {
@@ -507,7 +536,7 @@ function overviewSheet() {
     })
     .join('');
   openSheet(`${sheetHead('Exercises')}<div class="ov-list">${items}</div>
-    <button class="btn btn-ink btn-block" data-action="finish">Finish workout</button>`);
+    <button class="btn btn-ink btn-block" data-action="end">Finish workout</button>`);
 }
 
 // ---------- Actions ----------
@@ -555,15 +584,16 @@ export const workoutActions = {
     const back = w.exercises.findIndex((e, k) => open(k));
     if (n >= 0) go(n);
     else if (back >= 0) go(back);
-    else confirmSheet('Finish workout?', 'That was the last open exercise. Skipped exercises can still be reopened from the list.', 'Finish', 'finish');
+    else endSheet();
   },
   overview: overviewSheet,
   jump: (el) => {
     closeSheet();
     go(+el.dataset.i);
   },
-  end: () => confirmSheet('End workout?', 'Logged sets are saved to your history.', 'End workout', 'finish'),
+  end: endSheet,
   finish: finishWorkout,
+  'discard-workout': discardWorkout,
   'rest-plus': () => adjustRest(15),
   'rest-minus': () => adjustRest(-15),
   'rest-skip': () => {

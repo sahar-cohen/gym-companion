@@ -34,6 +34,10 @@ export function addRecord(record) {
   save(KEY, h.slice(0, MAX));
 }
 
+export function removeRecord(id) {
+  save(KEY, allHistory().filter((r) => r.id !== id));
+}
+
 // Most recent logged sets for an exercise: { sets, at } | null
 export function lastFor(exId, before = Infinity) {
   for (const r of allHistory()) {
