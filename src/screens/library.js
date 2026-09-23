@@ -7,7 +7,7 @@ import { muscleName } from '../data/muscles.js';
 import { save } from '../lib/storage.js';
 import { icon } from '../ui/icons.js';
 import { openSheet, closeSheet, sheetHead } from '../ui/sheets.js';
-import { techniqueNotes, stageHtml, mountStage } from '../ui/technique.js';
+import { techniqueNotes, stageHtml, mountStage, musclesSheet } from '../ui/technique.js';
 import { startCustom, showToast } from './workout.js';
 
 const norm = (s) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9 ]/g, '');
@@ -22,10 +22,10 @@ const picked = (id) => state.picks.includes(id);
 
 function exRow(e) {
   const on = picked(e.id);
-  return `<div class="lrow">
-    <button class="lrow-main" data-action="open-ex" data-id="${e.id}">
-      <span class="lrow-name">${esc(e.name)}</span>
-      <span class="lrow-meta">${esc(e.equipment)} · ${esc(e.primary.map(muscleName).join(', '))}</span>
+  return `<div class="lcard">
+    <button class="lcard-main" data-action="open-ex" data-id="${e.id}">
+      <span class="lcard-name">${esc(e.name)}</span>
+      <span class="lcard-meta">${esc(e.equipment)} · ${esc(e.primary.map(muscleName).join(', '))}</span>
     </button>
     <button class="pick ${on ? 'is-on' : ''}" data-action="pick" data-id="${e.id}" aria-pressed="${on}" aria-label="${on ? 'Remove from' : 'Add to'} custom workout">${on ? icon.check : icon.plus}</button>
   </div>`;
@@ -39,7 +39,7 @@ function listHtml() {
   if (g !== 'all') return hits.map(exRow).join('');
   return GROUPS.map((grp) => {
     const rows = hits.filter((e) => e.group === grp.id);
-    return rows.length ? `<section class="lgroup"><h2 class="label lgroup-head">${esc(grp.name)}<span>${rows.length}</span></h2>${rows.map(exRow).join('')}</section>` : '';
+    return rows.length ? `<section class="lgroup"><h2 class="section-title">${esc(grp.name)}<small>${rows.length}</small></h2><div class="lcards">${rows.map(exRow).join('')}</div></section>` : '';
   }).join('');
 }
 
@@ -48,9 +48,10 @@ export function libraryHtml() {
     .map((g) => `<button class="${state.libGroup === g.id ? 'is-on' : ''}" data-action="lib-group" data-g="${g.id}" aria-pressed="${state.libGroup === g.id}">${esc(g.name)}</button>`)
     .join('');
   return `
-    <label class="search">${icon.search}<input id="lib-q" type="search" placeholder="Search ${LIBRARY.length} exercises" value="${esc(state.libQuery)}" autocomplete="off" enterkeyhint="search"></label>
-    <div class="groups" role="group" aria-label="Muscle group">${chips}</div>
-    <div class="lrows" id="lib-list">${listHtml()}</div>`;
+    <h1 class="home-title">Exercise<br>library</h1>
+    <label class="search-box">${icon.search}<input id="lib-q" type="search" placeholder="Search ${LIBRARY.length} exercises" value="${esc(state.libQuery)}" autocomplete="off" enterkeyhint="search"></label>
+    <div class="chips" role="group" aria-label="Muscle group">${chips}</div>
+    <div class="lcards" id="lib-list">${listHtml()}</div>`;
 }
 
 export function pickTray() {
@@ -69,7 +70,7 @@ export function bindLibrary(app) {
     document.getElementById('lib-list').innerHTML = listHtml();
   });
   // Keep the chosen group chip in view.
-  app.querySelector('.groups .is-on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  app.querySelector('.chips .is-on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
 }
 
 function refreshPicks() {
@@ -103,27 +104,34 @@ export function renderExercise(app) {
 
   app.innerHTML = `
     <div class="screen exercise">
-      <header class="bar">
-        <button class="icon-btn" data-action="close-ex" aria-label="Back">${icon.back}</button>
-        <div class="bar-mid"></div>
-        <span class="icon-btn-space"></span>
+      <header class="topbar">
+        <div class="topbar-row">
+          <button class="icon-btn" data-action="close-ex" aria-label="Back">${icon.back}</button>
+          <div class="topbar-mid">
+            <span class="topbar-title">${fromLib ? 'Library' : esc(workoutById(state.detail.workoutId)?.name ?? '')}</span>
+            ${eyebrow ? `<span class="topbar-sub">${esc(eyebrow)}</span>` : ''}
+          </div>
+          <span class="icon-btn-space" style="width:44px"></span>
+        </div>
       </header>
       <main class="ex">
         <div class="ex-head">
-          ${eyebrow ? `<p class="label">${esc(eyebrow)}</p>` : ''}
           <h1 class="ex-name">${esc(ex.name)}</h1>
-          <p class="ex-dose"><b>${esc(`${ex.sets} × ${ex.reps}`)}</b>${ex.repsNote ? `<span>${esc(ex.repsNote)}</span>` : ''}${fromLib ? '<span>typical</span>' : ''}</p>
+          <div class="ex-meta">
+            <span class="ex-dose">${ex.sets} × ${esc(ex.reps)}</span>
+            ${ex.repsNote ? `<span class="ex-note">${esc(ex.repsNote)}</span>` : ''}
+            ${fromLib ? '<span class="ex-note">typical</span>' : ''}
+          </div>
         </div>
-        ${stageHtml(ex)}
-        <div class="notes">${techniqueNotes(ex)}</div>
+        ${stageHtml(ex, 'ex-muscles')}
+        <div class="tech">${techniqueNotes(ex)}</div>
       </main>
       ${
         fromLib
           ? `<footer class="dock">
-              <button class="dock-go ${on ? 'is-quiet' : ''}" data-action="pick" data-id="${ex.id}">
-                <span class="dock-go-main">${on ? 'Added to custom workout' : 'Add to custom workout'}</span>
-                ${on ? `<span class="dock-go-sub">Tap to remove</span>` : ''}
-                ${on ? icon.check : icon.plus}
+              <button class="btn btn-primary btn-xl dock-done ${on ? 'is-added' : ''}" data-action="pick" data-id="${ex.id}">
+                <span>${on ? 'Added to custom workout' : 'Add to custom workout'}</span>
+                ${on ? '<small>Tap to remove</small>' : ''}
               </button>
             </footer>`
           : ''
@@ -140,9 +148,9 @@ function traySheet() {
   const rows = state.picks
     .filter((id) => EXERCISES[id])
     .map(
-      (id, i) => `<div class="row">
-        <span class="row-num">${String(i + 1).padStart(2, '0')}</span>
-        <span class="row-body"><span class="row-title">${esc(EXERCISES[id].name)}</span><span class="row-sub">${esc(EXERCISES[id].equipment)}</span></span>
+      (id, i) => `<div class="ov-row">
+        <span class="ov-idx">${i + 1}</span>
+        <span class="ov-body"><span class="ov-name">${esc(EXERCISES[id].name)}</span><span class="ov-meta">${esc(EXERCISES[id].equipment)}</span></span>
         <span class="row-tools">
           <button class="icon-btn sm" data-action="tray-move" data-i="${i}" data-d="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">${icon.up}</button>
           <button class="icon-btn sm" data-action="pick" data-id="${id}" data-sheet="1" aria-label="Remove">${icon.close}</button>
@@ -152,19 +160,19 @@ function traySheet() {
     .join('');
   openSheet(
     `${sheetHead('Custom workout')}
-    <div class="rows">${rows}</div>
+    <div class="ov-list">${rows}</div>
     <div class="sheet-actions">
       <button class="btn btn-ghost" data-action="tray-save">Save as workout</button>
       <button class="btn btn-primary" data-action="tray-start">${icon.play}<span>Start</span></button>
     </div>
-    <button class="btn btn-text btn-block" data-action="tray-clear">Clear all</button>`,
+    <button class="btn btn-danger-ghost btn-block sheet-gap" data-action="tray-clear">${icon.trash}<span>Clear all</span></button>`,
   );
 }
 
 function saveSheet() {
   openSheet(`
     ${sheetHead('Save workout')}
-    <label class="field"><span class="label">Name</span>
+    <label class="field"><span class="field-label">Name</span>
       <input class="field-input" id="new-name" value="Custom ${state.workouts.length + 1}" maxlength="40" autocomplete="off"></label>
     <button class="btn btn-primary btn-block" data-action="tray-save-yes">Save</button>`);
   const input = document.getElementById('new-name');
@@ -196,6 +204,7 @@ export const libraryActions = {
     if (el.dataset.sheet) state.picks.length ? traySheet() : closeSheet();
   },
   tray: traySheet,
+  'ex-muscles': () => musclesSheet(resolve(detailExercise())),
   'tray-move': (el) => {
     const i = +el.dataset.i;
     const j = i + +el.dataset.d;

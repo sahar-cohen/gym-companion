@@ -21,39 +21,40 @@ export function renderSummary(app) {
   const load = muscleLoad(r.exercises);
   const max = Math.max(1, ...Object.values(load));
   const levels = Object.fromEntries(Object.entries(load).map(([m, v]) => [m, 0.25 + 0.75 * (v / max)]));
-  const byLoad = Object.keys(load).sort((a, b) => load[b] - load[a]);
-  const primary = new Set(r.exercises.flatMap((e) => e.primary));
-  const worked = byLoad.filter((m) => primary.has(m));
-  const touched = byLoad.filter((m) => !primary.has(m));
+  const ranked = Object.entries(load).sort((a, b) => b[1] - a[1]);
+  const setsText = (v) => `${Number.isInteger(v) ? v : v.toFixed(1)} set${v === 1 ? '' : 's'}`;
 
   app.innerHTML = `
     <div class="screen done">
-      <header class="bar">
-        <span class="icon-btn-space"></span>
-        <div class="bar-mid"></div>
+      <header class="done-top">
+        <div class="done-mark">${icon.check}</div>
         <button class="icon-btn" data-action="home" aria-label="Close">${icon.close}</button>
       </header>
-      <h1 class="done-title">Nicely done.</h1>
-      <p class="page-sub">${esc(r.workoutName)} · ${fmtDuration(r.finishedAt - r.startedAt)} · ${r.exercises.length} of ${r.total} exercises</p>
+      <h1 class="done-title">Workout<br>complete</h1>
+      <p class="done-sub">${esc(r.workoutName)}</p>
 
-      <div class="bodymap"><div class="stage-canvas" id="stage-canvas"></div></div>
+      <dl class="stats">
+        <div><dt>Time</dt><dd>${fmtDuration(r.finishedAt - r.startedAt)}</dd></div>
+        <div><dt>Exercises</dt><dd>${r.exercises.length}<small>/${r.total}</small></dd></div>
+        <div><dt>Muscles</dt><dd>${ranked.length}</dd></div>
+      </dl>
 
-      ${
-        worked.length
-          ? `<section class="notes-block"><h3 class="label">Worked</h3>
-              <p class="works"><span class="works-primary">${worked.map((m) => esc(muscleName(m))).join(', ')}</span></p></section>`
-          : ''
-      }
-      ${
-        touched.length
-          ? `<section class="notes-block"><h3 class="label">Also</h3>
-              <p class="works"><span class="works-secondary">${touched.map((m) => esc(muscleName(m))).join(', ')}</span></p></section>`
-          : ''
-      }
-      <section class="notes-block"><h3 class="label">Exercises</h3>
-        <ol class="done-list">${r.exercises.map((e) => `<li>${esc(e.name)}</li>`).join('')}</ol></section>
+      <section class="bodymap">
+        <div class="bodymap-stage"><div class="stage-canvas" id="stage-canvas"></div></div>
+        <div class="bodymap-side">
+          <h2 class="section-title">Muscles trained</h2>
+          <div class="bodymap-scale"><span>Fewer sets</span><i></i><span>More</span></div>
+          <ol class="mlist">${ranked
+            .map(([m, v]) => `<li><span class="mdot" style="--lv:${levels[m]}"></span><span>${esc(muscleName(m))}</span><b>${setsText(v)}</b></li>`)
+            .join('')}</ol>
+        </div>
+      </section>
 
-      <div class="home-dock"><button class="dock-go" data-action="home"><span class="dock-go-main">Done</span>${icon.check}</button></div>
+      <h2 class="section-title">Exercises</h2>
+      <ol class="xlist">${r.exercises.map((e) => `<li><span class="xname">${esc(e.name)}</span><span class="xsets">${e.sets} × ${esc(e.reps)}</span></li>`).join('')}</ol>
+      <p class="mnote">Set counts: primary muscle = 1 per set, secondary = ½.</p>
+
+      <div class="home-dock"><button class="btn btn-primary btn-xl" data-action="home">Done</button></div>
     </div>`;
 
   forgetStage(); // the next exercise page must re-show its demo

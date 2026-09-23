@@ -21,56 +21,66 @@ function workoutsHtml() {
   const s = state.session;
   const sw = s && currentWorkout();
   const resume = sw
-    ? `<div class="resume">
-        <span class="resume-dot" aria-hidden="true"></span>
-        <span class="resume-text"><b>${esc(sw.name)}</b> in progress · ${doneCount(s)} of ${s.done.length} done</span>
-        <button class="btn btn-text" data-action="discard">Discard</button>
-        <button class="btn btn-primary btn-sm" data-action="resume">Resume</button>
-      </div>`
+    ? `<section class="resume">
+        <div>
+          <div class="eyebrow">In progress</div>
+          <div class="resume-title">${esc(sw.name)} · ${doneCount(s)}/${s.done.length} done</div>
+        </div>
+        <button class="btn btn-ghost" data-action="discard">Discard</button>
+        <button class="btn btn-primary" data-action="resume">Resume</button>
+      </section>`
     : '';
 
-  const rows = state.workouts
+  const cards = state.workouts
     .map((w) => {
       const n = w.exercises.length;
       const last = state.lastDone[w.id];
-      const meta = n ? [`${n} exercise${n === 1 ? '' : 's'}`, `~${workoutMinutes(w)} min`, last ? `last ${daysAgo(last)}` : null].filter(Boolean).join(' · ') : 'No exercises yet';
-      return `<button class="wrow" data-action="open-plan" data-id="${w.id}">
-        <span class="wrow-body">
-          <span class="wrow-name">${esc(w.name)}</span>
-          <span class="wrow-meta">${esc(meta)}</span>
-          ${n ? `<span class="wrow-muscles">${workoutMuscles(w).slice(0, 5).map(esc).join(' · ')}</span>` : ''}
+      return `<button class="wcard" data-action="open-plan" data-id="${w.id}">
+        <span class="wcard-body">
+          <span class="wcard-name">${esc(w.name)}</span>
+          ${
+            n
+              ? `<span class="wcard-meta">${n} exercise${n === 1 ? '' : 's'} · ~${workoutMinutes(w)} min</span>
+                 <span class="wcard-muscles">${workoutMuscles(w).slice(0, 6).map(esc).join(' · ')}</span>`
+              : `<span class="wcard-meta">No exercises yet</span>`
+          }
+          ${last ? `<span class="wcard-extra">Last done ${daysAgo(last)}</span>` : ''}
         </span>
-        ${icon.next}
+        <span class="wcard-go">${icon.next}</span>
       </button>`;
     })
     .join('');
 
-  return `${resume}
-    <div class="wrows">${rows}</div>
-    <button class="add-line" data-action="new-workout">${icon.plus}<span>New workout</span></button>`;
+  return `<h1 class="home-title">Today’s<br>workout</h1>
+    ${resume}
+    <div class="wlist" role="list">${cards}</div>
+    <div class="wtools">
+      <button class="btn btn-ghost" data-action="new-workout">${icon.plus}<span>New workout</span></button>
+    </div>`;
 }
 
 export function renderHome(app) {
   const lib = state.tab === 'library';
   const install =
     isIOS && !isStandalone && !state.installDismissed
-      ? `<div class="install">
-          <p>Install: tap ${icon.share} Share, then <b>Add to Home Screen</b>. It opens full screen and works offline.</p>
+      ? `<section class="install">
+          <div class="install-text"><b>Install on your iPhone</b>
+            <span>Tap ${icon.share} Share, then <b>Add to Home Screen</b>. It opens full screen and works offline.</span></div>
           <button class="icon-btn sm" data-action="dismiss-install" aria-label="Dismiss">${icon.close}</button>
-        </div>`
+        </section>`
       : '';
 
   app.innerHTML = `
-    <div class="screen home ${lib && state.picks.length ? 'has-tray' : ''}">
+    <div class="screen home">
       <header class="home-top">
-        <span class="wordmark">Gym Companion</span>
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Gym Companion</div>
         <button class="icon-btn" data-action="settings" aria-label="Settings">${icon.gear}</button>
       </header>
       ${install}
-      <nav class="tabs" role="tablist">
+      <div class="seg-ctl home-tabs" role="tablist">
         <button role="tab" aria-selected="${!lib}" class="${lib ? '' : 'is-on'}" data-action="tab" data-tab="workouts">Workouts</button>
         <button role="tab" aria-selected="${lib}" class="${lib ? 'is-on' : ''}" data-action="tab" data-tab="library">Library</button>
-      </nav>
+      </div>
       ${lib ? libraryHtml() : workoutsHtml()}
       ${lib ? pickTray() : ''}
     </div>`;

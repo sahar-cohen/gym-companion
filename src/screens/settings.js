@@ -9,27 +9,28 @@ export const setApplyTheme = (fn) => (applyThemeFn = fn);
 
 export function settingsSheet() {
   const st = state.settings;
+  const toggle = (key, label, hint = '') =>
+    `<label class="srow"><span>${label}${hint ? `<small>${hint}</small>` : ''}</span>
+      <input type="checkbox" class="switch" data-setting="${key}" ${st[key] ? 'checked' : ''}></label>`;
   openSheet(
     `${sheetHead('Settings')}
-    ${
-      voiceSupported
-        ? `<label class="switch-row"><span>Voice coach<small>Announces each exercise as you reach it</small></span>
-            <input type="checkbox" class="switch" data-setting="voice" ${st.voice ? 'checked' : ''}></label>`
-        : ''
-    }
-    <div class="switch-row">
-      <span>Appearance</span>
-      <div class="seg">${['system', 'light', 'dark']
-        .map((t) => `<button data-action="theme" data-t="${t}" class="${st.theme === t ? 'is-on' : ''}" aria-pressed="${st.theme === t}">${t[0].toUpperCase() + t.slice(1)}</button>`)
+    ${voiceSupported ? toggle('voice', 'Voice coach', 'Announces each exercise') : ''}
+    <div class="srow">
+      <span>Theme</span>
+      <div class="seg-ctl">${['system', 'light', 'dark']
+        .map((t) => `<button data-action="theme" data-t="${t}" class="${st.theme === t ? 'is-on' : ''}">${t[0].toUpperCase() + t.slice(1)}</button>`)
         .join('')}</div>
     </div>
-    <div class="switch-row">
-      <span>Backup<small>Your workouts and settings as a file</small></span>
+
+    <h3 class="sheet-sub">Your data</h3>
+    <div class="srow">
+      <span>Backup<small>Workouts and settings as a file</small></span>
       <span class="btn-pair">
         <button class="btn btn-ghost btn-sm" data-action="export-data">Export</button>
         <label class="btn btn-ghost btn-sm">Import<input type="file" accept="application/json,.json" data-import hidden></label>
       </span>
     </div>`,
+    { tall: true },
   );
 }
 

@@ -57,51 +57,52 @@ export function renderEditor(app) {
       const inner = b
         .map((i) => {
           const ex = w.exercises[i];
-          return `<div class="row">
-            <button class="row-main" data-action="ed-exercise" data-i="${i}" ${lock ? 'disabled' : ''}>
-              <span class="row-num">${String(i + 1).padStart(2, '0')}</span>
-              <span class="row-body"><span class="row-title">${esc(ex.name)}</span>
-                <span class="row-sub">${ex.sets} × ${esc(ex.reps)}${ex.repsNote ? ` ${esc(ex.repsNote)}` : ''}</span></span>
+          return `<div class="ed-row">
+            <button class="ed-main" data-action="ed-exercise" data-i="${i}" ${lock ? 'disabled' : ''}>
+              <span class="ov-idx">${i + 1}</span>
+              <span class="ov-body"><span class="ov-name">${esc(ex.name)}</span>
+                <span class="ov-meta">${ex.sets} × ${esc(ex.reps)}${ex.repsNote ? ` ${esc(ex.repsNote)}` : ''}</span></span>
             </button>
-            <span class="row-tools">
+            <span class="ed-move">
               <button class="icon-btn sm" data-action="ed-move" data-i="${i}" data-d="-1" ${i === 0 || lock ? 'disabled' : ''} aria-label="Move up">${icon.up}</button>
               <button class="icon-btn sm" data-action="ed-move" data-i="${i}" data-d="1" ${i === w.exercises.length - 1 || lock ? 'disabled' : ''} aria-label="Move down">${icon.down}</button>
             </span>
           </div>`;
         })
         .join('');
-      return b.length > 1 ? `<div class="row-group"><span class="row-group-label">Superset</span>${inner}</div>` : inner;
+      return b.length > 1 ? `<div class="ov-group"><span class="ov-group-label">Superset</span>${inner}</div>` : inner;
     })
     .join('');
 
 
   app.innerHTML = `
     <div class="screen editor">
-      <header class="bar">
+      <header class="ed-top">
         <button class="icon-btn" data-action="ed-close" aria-label="Back">${icon.back}</button>
-        <div class="bar-mid"><span class="bar-title">Edit workout</span></div>
+        <span class="topbar-title">Edit workout</span>
         <button class="btn btn-primary btn-sm" data-action="ed-close">Done</button>
       </header>
 
       ${
         lock
-          ? `<p class="note-flag">${icon.flag}<span>This workout is in progress. Finish or discard it to edit exercises.
-              <button class="btn-link" data-action="ed-discard-session">Discard session</button></span></p>`
+          ? `<div class="confirm-note">${icon.flag}<span>This workout is in progress. Finish or discard it to edit exercises.
+              <button class="linkbtn" data-action="ed-discard-session">Discard session</button></span></div>`
           : ''
       }
 
       <label class="field">
-        <span class="label">Name</span>
+        <span class="field-label">Name</span>
         <input class="field-input field-title" data-edit="workout-name" value="${esc(w.name)}" maxlength="40" autocomplete="off">
       </label>
 
-      <h2 class="label section-label">Exercises</h2>
-      <div class="rows">${rows || '<p class="empty-line">No exercises yet.</p>'}</div>
-      <button class="add-line" data-action="ed-add" ${lock ? 'disabled' : ''}>${icon.plus}<span>Add exercise</span></button>
+      <h2 class="section-title">Exercises</h2>
+      <div class="ov-list">${rows || '<p class="sheet-text">No exercises yet.</p>'}</div>
+      <button class="btn btn-primary btn-block" data-action="ed-add" ${lock ? 'disabled' : ''}>${icon.plus}<span>Add exercise</span></button>
 
-      <div class="ed-manage">
-        ${isDefault ? `<button class="btn btn-text" data-action="ed-restore">Restore original</button>` : ''}
-        <button class="btn btn-text is-danger" data-action="ed-delete">${icon.trash}<span>Delete workout</span></button>
+      <h2 class="section-title">Manage</h2>
+      <div class="ed-danger">
+        ${isDefault ? `<button class="btn btn-ghost" data-action="ed-restore">Restore original</button>` : ''}
+        <button class="btn btn-danger-ghost" data-action="ed-delete">${icon.trash}<span>Delete workout</span></button>
       </div>
     </div>`;
 }
@@ -141,7 +142,7 @@ function exerciseSheet() {
           <input class="field-input" id="f-note" value="${esc(ex.repsNote ?? '')}" placeholder="per leg"></label>
       </div>
 
-      ${canLink ? `<label class="switch-row"><span>Superset with next exercise<small>${esc(w.exercises[index + 1].name)}</small></span><input type="checkbox" class="switch" id="f-link" ${linked ? 'checked' : ''}></label>` : ''}
+      ${canLink ? `<label class="srow"><span>Superset with next exercise<small>${esc(w.exercises[index + 1].name)}</small></span><input type="checkbox" class="switch" id="f-link" ${linked ? 'checked' : ''}></label>` : ''}
 
       ${
         ex.variants?.length
@@ -178,20 +179,20 @@ function libRows(q) {
   return (
     hits
       .map(
-        (e) => `<button class="row" data-action="ed-lib-add" data-id="${e.id}">
-          <span class="row-body"><span class="row-title">${esc(e.name)}</span><span class="row-sub">${esc(e.equipment)} · ${esc(e.primary.map(muscleName).join(', '))}</span></span>
-          ${has.has(e.id) ? `<span class="row-note">In workout</span>` : icon.plus}
+        (e) => `<button class="ov-row" data-action="ed-lib-add" data-id="${e.id}">
+          <span class="ov-body"><span class="ov-name">${esc(e.name)}</span><span class="ov-meta">${esc(e.equipment)} · ${esc(e.primary.map(muscleName).join(', '))}</span></span>
+          ${has.has(e.id) ? `<span class="ov-status">In workout</span>` : icon.plus}
         </button>`,
       )
-      .join('') || '<p class="empty-line">Nothing matches.</p>'
+      .join('') || '<p class="sheet-text">Nothing matches.</p>'
   );
 }
 
 function addSheet() {
   openSheet(
     `${sheetHead('Add exercise')}
-    <label class="search">${icon.search}<input id="ed-q" type="search" placeholder="Search the library" autocomplete="off"></label>
-    <div class="rows" id="ed-lib">${libRows('')}</div>
+    <label class="search-box">${icon.search}<input id="ed-q" type="search" placeholder="Search the library" autocomplete="off"></label>
+    <div class="ov-list" id="ed-lib">${libRows('')}</div>
     <button class="btn btn-ghost btn-block" data-action="ed-exercise" data-i="-1">${icon.edit}<span>Custom exercise</span></button>`,
     { tall: true },
   );

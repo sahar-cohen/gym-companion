@@ -21,43 +21,36 @@ export function renderPlan(app) {
 
   const row = (i) => {
     const ex = w.exercises[i];
-    return `<button class="row" data-action="plan-ex" data-i="${i}">
-      <span class="row-num">${pad2(i + 1)}</span>
-      <span class="row-body"><span class="row-title">${esc(ex.name)}</span>
-        <span class="row-sub">${esc(`${ex.sets} × ${ex.reps}`)}${ex.repsNote ? ` ${esc(ex.repsNote)}` : ''}</span></span>
+    return `<button class="ov-row" data-action="plan-ex" data-i="${i}">
+      <span class="ov-idx">${i + 1}</span>
+      <span class="ov-body"><span class="ov-name">${esc(ex.name)}</span>
+        <span class="ov-meta">${ex.sets} × ${esc(ex.reps)}${ex.repsNote ? ` ${esc(ex.repsNote)}` : ''}</span></span>
       ${icon.next}
     </button>`;
   };
   const rows = blocks(w)
-    .map((b) => (b.length > 1 ? `<div class="row-group"><span class="row-group-label">Superset · no rest between</span>${b.map(row).join('')}</div>` : row(b[0])))
+    .map((b) => (b.length > 1 ? `<div class="ov-group"><span class="ov-group-label">Superset · no rest between</span>${b.map(row).join('')}</div>` : row(b[0])))
     .join('');
 
   app.innerHTML = `
     <div class="screen plan">
-      <header class="bar">
+      <header class="ed-top">
         <button class="icon-btn" data-action="plan-back" aria-label="Back">${icon.back}</button>
-        <div class="bar-mid"></div>
-        <button class="btn btn-text btn-sm" data-action="edit" data-id="${w.id}">Edit</button>
+        <button class="btn btn-ghost" data-action="edit" data-id="${w.id}">${icon.edit}<span>Edit</span></button>
       </header>
-      <h1 class="page-title">${esc(w.name)}</h1>
-      <p class="page-sub">${n ? `${n} exercise${n === 1 ? '' : 's'} · ~${workoutMinutes(w)} min` : 'No exercises yet'}${
-        last ? `<br>Last done ${daysAgo(last)}` : ''
-      }</p>
-      ${n ? `<p class="page-muscles">${workoutMuscles(w).map(esc).join(' · ')}</p>` : ''}
+      <h1 class="home-title">${esc(w.name)}</h1>
+      <p class="plan-meta">${n ? `${n} exercise${n === 1 ? '' : 's'} · ~${workoutMinutes(w)} min${last ? ` · last done ${daysAgo(last)}` : ''}` : 'No exercises yet'}</p>
+      ${n ? `<p class="plan-muscles">${workoutMuscles(w).map(esc).join(' · ')}</p>` : ''}
       ${
         n
-          ? `<div class="rows">${rows}</div>`
-          : `<div class="empty-block">
-              <p>Add exercises from the library or type in your coach’s plan.</p>
+          ? `<div class="ov-list">${rows}</div>`
+          : `<div class="empty">
+              <div class="empty-title">Add exercises</div>
+              <p>Pick them from the library or type in your coach’s plan.</p>
               <button class="btn btn-primary" data-action="edit" data-id="${w.id}">${icon.plus}<span>Add exercises</span></button>
             </div>`
       }
-      ${
-        n
-          ? `<div class="home-dock"><button class="dock-go" data-action="plan-start">
-              <span class="dock-go-main">Start ${esc(w.name)}</span>${icon.play}</button></div>`
-          : ''
-      }
+      ${n ? `<div class="home-dock"><button class="btn btn-primary btn-xl" data-action="plan-start">${icon.play}<span>Start ${esc(w.name)}</span></button></div>` : ''}
     </div>`;
 }
 
