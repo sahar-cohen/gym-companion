@@ -49,7 +49,7 @@ Without Premium you get "now playing" only.
 
 1. Go to <https://developer.spotify.com/dashboard> → **Create app**.
 2. Name: `Gym Companion`. APIs: **Web API**. Redirect URI: your app URL exactly,
-   e.g. `https://<you>.github.io/gym/` (for local dev: `http://127.0.0.1:5173/`;
+   e.g. `https://sahar-cohen.github.io/gym-companion/` (for local dev: `http://127.0.0.1:5173/`;
    Spotify rejects `localhost`).
 3. Copy the **Client ID**, then either:
    - paste it in the app under **Settings → Spotify → Client ID**, or
@@ -130,16 +130,16 @@ New movement patterns need a new entry in `three/animations.js`.
 
 ### GitHub Pages (workflow included)
 
-1. Create an empty repo on GitHub (e.g. `gym`).
+1. Create an empty repo on GitHub (e.g. `gym-companion`).
 2. Push this folder:
    ```bash
    git add -A && git commit -m "Gym Companion v1"
    git branch -M main
-   git remote add origin https://github.com/<you>/gym.git
+   git remote add origin https://github.com/sahar-cohen/gym-companion.git
    git push -u origin main
    ```
 3. On GitHub: **Settings → Pages → Source: GitHub Actions**.
-4. The workflow builds and publishes to `https://<you>.github.io/gym/`.
+4. The workflow builds and publishes to `https://sahar-cohen.github.io/gym-companion/`.
 
 ### Vercel
 
