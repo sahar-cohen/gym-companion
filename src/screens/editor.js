@@ -1,10 +1,10 @@
 // In-app editor for workouts and exercises. Changes save to localStorage.
 import { state, render, saveWorkouts, workoutById, persistSession } from '../app/state.js';
-import { esc, fmtKg, slug, uid } from '../app/util.js';
+import { esc, slug, uid } from '../app/util.js';
 import { DEFAULT_WORKOUTS } from '../data/workouts.js';
+import { LIBRARY, EXERCISES, fromLibrary } from '../data/exercises.js';
 import { MUSCLES, muscleName } from '../data/muscles.js';
 import { ANIMATIONS } from '../three/animations.js';
-import { save } from '../lib/storage.js';
 import { blocks } from '../lib/session.js';
 import { icon } from '../ui/icons.js';
 import { openSheet, closeSheet, confirmSheet, sheetHead } from '../ui/sheets.js';
@@ -57,52 +57,51 @@ export function renderEditor(app) {
       const inner = b
         .map((i) => {
           const ex = w.exercises[i];
-          return `<div class="ed-row">
-            <button class="ed-main" data-action="ed-exercise" data-i="${i}" ${lock ? 'disabled' : ''}>
-              <span class="ov-idx">${i + 1}</span>
-              <span class="ov-body"><span class="ov-name">${esc(ex.name)}</span>
-                <span class="ov-meta">${ex.sets} × ${esc(ex.reps)}${ex.repsNote ? ` ${esc(ex.repsNote)}` : ''}${ex.weight ? ` · ${fmtKg(ex.weight)} kg` : ''}${ex.bodyweight ? ' · bodyweight' : ''}</span></span>
+          return `<div class="row">
+            <button class="row-main" data-action="ed-exercise" data-i="${i}" ${lock ? 'disabled' : ''}>
+              <span class="row-num">${String(i + 1).padStart(2, '0')}</span>
+              <span class="row-body"><span class="row-title">${esc(ex.name)}</span>
+                <span class="row-sub">${ex.sets} × ${esc(ex.reps)}${ex.repsNote ? ` ${esc(ex.repsNote)}` : ''}</span></span>
             </button>
-            <span class="ed-move">
+            <span class="row-tools">
               <button class="icon-btn sm" data-action="ed-move" data-i="${i}" data-d="-1" ${i === 0 || lock ? 'disabled' : ''} aria-label="Move up">${icon.up}</button>
               <button class="icon-btn sm" data-action="ed-move" data-i="${i}" data-d="1" ${i === w.exercises.length - 1 || lock ? 'disabled' : ''} aria-label="Move down">${icon.down}</button>
             </span>
           </div>`;
         })
         .join('');
-      return b.length > 1 ? `<div class="ov-group"><span class="ov-group-label">Superset</span>${inner}</div>` : inner;
+      return b.length > 1 ? `<div class="row-group"><span class="row-group-label">Superset</span>${inner}</div>` : inner;
     })
     .join('');
 
 
   app.innerHTML = `
     <div class="screen editor">
-      <header class="ed-top">
+      <header class="bar">
         <button class="icon-btn" data-action="ed-close" aria-label="Back">${icon.back}</button>
-        <span class="topbar-title">Edit workout</span>
+        <div class="bar-mid"><span class="bar-title">Edit workout</span></div>
         <button class="btn btn-primary btn-sm" data-action="ed-close">Done</button>
       </header>
 
       ${
         lock
-          ? `<div class="confirm-note">${icon.flag}<span>This workout is in progress. Finish or discard it to edit exercises.
-              <button class="linkbtn" data-action="ed-discard-session">Discard session</button></span></div>`
+          ? `<p class="note-flag">${icon.flag}<span>This workout is in progress. Finish or discard it to edit exercises.
+              <button class="btn-link" data-action="ed-discard-session">Discard session</button></span></p>`
           : ''
       }
 
       <label class="field">
-        <span class="field-label">Name</span>
+        <span class="label">Name</span>
         <input class="field-input field-title" data-edit="workout-name" value="${esc(w.name)}" maxlength="40" autocomplete="off">
       </label>
 
-      <h2 class="section-title">Exercises</h2>
-      <div class="ov-list">${rows || '<p class="sheet-text">No exercises yet.</p>'}</div>
-      <button class="btn btn-primary btn-block" data-action="ed-exercise" data-i="-1" ${lock ? 'disabled' : ''}>${icon.plus}<span>Add exercise</span></button>
+      <h2 class="label section-label">Exercises</h2>
+      <div class="rows">${rows || '<p class="empty-line">No exercises yet.</p>'}</div>
+      <button class="add-line" data-action="ed-add" ${lock ? 'disabled' : ''}>${icon.plus}<span>Add exercise</span></button>
 
-      <h2 class="section-title">Manage</h2>
-      <div class="ed-danger">
-        ${isDefault ? `<button class="btn btn-ghost" data-action="ed-restore">Restore original</button>` : ''}
-        <button class="btn btn-danger-ghost" data-action="ed-delete">${icon.trash}<span>Delete workout</span></button>
+      <div class="ed-manage">
+        ${isDefault ? `<button class="btn btn-text" data-action="ed-restore">Restore original</button>` : ''}
+        <button class="btn btn-text is-danger" data-action="ed-delete">${icon.trash}<span>Delete workout</span></button>
       </div>
     </div>`;
 }
@@ -142,15 +141,7 @@ function exerciseSheet() {
           <input class="field-input" id="f-note" value="${esc(ex.repsNote ?? '')}" placeholder="per leg"></label>
       </div>
 
-      <div class="field-row">
-        <label class="field"><span class="field-label">Target kg</span>
-          <input class="field-input" id="f-weight" inputmode="decimal" value="${ex.weight ?? ''}" placeholder="optional"></label>
-        <label class="field"><span class="field-label">Rest (s)</span>
-          <input class="field-input" id="f-rest" inputmode="numeric" value="${ex.rest ?? ''}" placeholder="${state.settings.rest} default"></label>
-      </div>
-
-      <label class="srow"><span>Bodyweight (log reps only)</span><input type="checkbox" class="switch" id="f-bw" ${ex.bodyweight ? 'checked' : ''}></label>
-      ${canLink ? `<label class="srow"><span>Superset with next exercise<small>${esc(w.exercises[index + 1].name)}</small></span><input type="checkbox" class="switch" id="f-link" ${linked ? 'checked' : ''}></label>` : ''}
+      ${canLink ? `<label class="switch-row"><span>Superset with next exercise<small>${esc(w.exercises[index + 1].name)}</small></span><input type="checkbox" class="switch" id="f-link" ${linked ? 'checked' : ''}></label>` : ''}
 
       ${
         ex.variants?.length
@@ -164,6 +155,9 @@ function exerciseSheet() {
       <label class="field"><span class="field-label">Form cues <small>one per line</small></span>
         <textarea class="field-input" id="f-cues" rows="3">${esc((ex.cues ?? []).join('\n'))}</textarea></label>
 
+      <label class="field"><span class="field-label">Avoid <small>common mistakes, one per line</small></span>
+        <textarea class="field-input" id="f-avoid" rows="2">${esc((ex.avoid ?? []).join('\n'))}</textarea></label>
+
       <label class="field"><span class="field-label">“Confirm with coach” note <small>optional</small></span>
         <input class="field-input" id="f-confirm" value="${esc(ex.confirm ?? '')}"></label>
 
@@ -176,9 +170,39 @@ function exerciseSheet() {
   );
 }
 
+// Add from the library (search + list), or type in a custom exercise.
+function libRows(q) {
+  const has = new Set(editing().exercises.map((e) => e.id));
+  const needle = q.trim().toLowerCase();
+  const hits = LIBRARY.filter((e) => !needle || `${e.name} ${e.equipment} ${e.group}`.toLowerCase().includes(needle));
+  return (
+    hits
+      .map(
+        (e) => `<button class="row" data-action="ed-lib-add" data-id="${e.id}">
+          <span class="row-body"><span class="row-title">${esc(e.name)}</span><span class="row-sub">${esc(e.equipment)} · ${esc(e.primary.map(muscleName).join(', '))}</span></span>
+          ${has.has(e.id) ? `<span class="row-note">In workout</span>` : icon.plus}
+        </button>`,
+      )
+      .join('') || '<p class="empty-line">Nothing matches.</p>'
+  );
+}
+
+function addSheet() {
+  openSheet(
+    `${sheetHead('Add exercise')}
+    <label class="search">${icon.search}<input id="ed-q" type="search" placeholder="Search the library" autocomplete="off"></label>
+    <div class="rows" id="ed-lib">${libRows('')}</div>
+    <button class="btn btn-ghost btn-block" data-action="ed-exercise" data-i="-1">${icon.edit}<span>Custom exercise</span></button>`,
+    { tall: true },
+  );
+  const input = document.getElementById('ed-q');
+  input.addEventListener('input', () => (document.getElementById('ed-lib').innerHTML = libRows(input.value)));
+}
+
 // ---------- Actions ----------
 
 const val = (id) => document.getElementById(id)?.value.trim() ?? '';
+const lines = (id) => val(id).split('\n').map((c) => c.trim()).filter(Boolean).slice(0, 5);
 const numOrNull = (s) => {
   const n = parseFloat(String(s).replace(',', '.'));
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -186,9 +210,20 @@ const numOrNull = (s) => {
 
 export const editorActions = {
   'ed-close': () => {
+    const id = state.editor?.workoutId;
     state.editor = null;
-    state.screen = 'home';
+    state.planId = id;
+    state.screen = workoutById(id) ? 'plan' : 'home';
     render();
+  },
+  'ed-add': () => addSheet(),
+  'ed-lib-add': (el) => {
+    const w = editing();
+    w.exercises.push(fromLibrary(el.dataset.id));
+    saveWorkouts();
+    closeSheet();
+    render();
+    showToast(`Added ${EXERCISES[el.dataset.id].name}`);
   },
   'ed-discard-session': () => {
     state.session = null;
@@ -201,7 +236,7 @@ export const editorActions = {
     const ex =
       index >= 0
         ? structuredClone(w.exercises[index])
-        : { name: '', sets: 3, reps: '10', repsNote: '', weight: null, rest: null, superset: null, primary: [], secondary: [], cues: [], animation: 'none' };
+        : { name: '', sets: 3, reps: '10', repsNote: '', superset: null, primary: [], secondary: [], cues: [], avoid: [], animation: 'none' };
     draft = { index, ex };
     exerciseSheet();
   },
@@ -227,15 +262,14 @@ export const editorActions = {
     }
     const e = draft.ex;
     const sets = Math.round(numOrNull(val('f-sets')) ?? 3);
+    for (const k of ['weight', 'rest', 'bodyweight']) delete e[k]; // v1 fields
     Object.assign(e, {
       name,
       sets: Math.min(10, Math.max(1, sets)),
       reps: val('f-reps') || '10',
       repsNote: val('f-note') || undefined,
-      weight: numOrNull(val('f-weight')),
-      rest: numOrNull(val('f-rest')),
-      bodyweight: document.getElementById('f-bw')?.checked || undefined,
-      cues: val('f-cues').split('\n').map((c) => c.trim()).filter(Boolean).slice(0, 5),
+      cues: lines('f-cues'),
+      avoid: lines('f-avoid'),
       confirm: val('f-confirm') || undefined,
     });
     const anim = document.getElementById('f-anim')?.value;
@@ -258,7 +292,7 @@ export const editorActions = {
     render();
   },
   'ed-ex-delete': () =>
-    confirmSheet('Delete exercise?', `“${esc(draft.ex.name)}” will be removed from this workout. Its history is kept.`, 'Delete', 'ed-ex-delete-yes', { danger: true }),
+    confirmSheet('Delete exercise?', `“${esc(draft.ex.name)}” will be removed from this workout.`, 'Delete', 'ed-ex-delete-yes', { danger: true }),
   'ed-ex-delete-yes': () => {
     const w = editing();
     const d = draft.index;
@@ -285,7 +319,7 @@ export const editorActions = {
     render();
   },
   'ed-restore': () =>
-    confirmSheet('Restore original?', 'This replaces your edits to this workout with the original plan. History is kept.', 'Restore', 'ed-restore-yes'),
+    confirmSheet('Restore original?', 'This replaces your edits to this workout with the original plan.', 'Restore', 'ed-restore-yes'),
   'ed-restore-yes': () => {
     const w = editing();
     const orig = structuredClone(DEFAULT_WORKOUTS.find((d) => d.id === w.id));
@@ -294,7 +328,7 @@ export const editorActions = {
     closeSheet();
     render();
   },
-  'ed-delete': () => confirmSheet('Delete workout?', 'The workout is removed. Its history is kept.', 'Delete', 'ed-delete-yes', { danger: true }),
+  'ed-delete': () => confirmSheet('Delete workout?', 'The workout is removed from your list.', 'Delete', 'ed-delete-yes', { danger: true }),
   'ed-delete-yes': () => {
     const w = editing();
     state.workouts = state.workouts.filter((x) => x !== w);
@@ -303,10 +337,10 @@ export const editorActions = {
       persistSession();
     }
     saveWorkouts();
-    state.selectedId = state.workouts[0]?.id;
-    save('selected', state.selectedId);
     closeSheet();
-    editorActions['ed-close']();
+    state.editor = null;
+    state.screen = 'home';
+    render();
   },
 };
 

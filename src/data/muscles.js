@@ -39,6 +39,15 @@ export const MUSCLES = {
     name: 'Upper chest',
     parts: [['chest', [0.085, 0.215, 0.1], [0.085, 0.045, 0.035], 8]],
   },
+  chest: {
+    name: 'Chest',
+    parts: [['chest', [0.088, 0.145, 0.098], [0.09, 0.06, 0.036], 4]],
+  },
+  abs: {
+    name: 'Abs',
+    parts: [['spine', [0, 0.14, 0.082], [0.07, 0.08, 0.03]]],
+    single: true,
+  },
   frontDelts: {
     name: 'Front delts',
     parts: [['upperArm', [0.012, -0.045, 0.045], [0.04, 0.075, 0.03]]],
@@ -108,6 +117,14 @@ export const MUSCLES = {
   brachioradialis: {
     name: 'Brachioradialis',
     parts: [['foreArm', [0.026, -0.07, 0.016], [0.022, 0.075, 0.022]]],
+  },
+  forearms: {
+    name: 'Forearms',
+    parts: [['foreArm', [-0.016, -0.09, 0.012], [0.024, 0.08, 0.024]]],
+  },
+  calves: {
+    name: 'Calves',
+    parts: [['shin', [0, -0.14, -0.036], [0.046, 0.11, 0.036]]],
   },
 };
 

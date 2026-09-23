@@ -44,9 +44,8 @@ export function stop() {
   synth?.cancel();
 }
 
-// Speech-friendly exercise description: "3 sets of 12, per leg, at 40 kilos".
-export function doseText(ex, weight) {
-  const reps = String(ex.reps).replace('–', ' to ');
-  const kg = weight ? `, at ${String(weight).replace('.5', ' and a half')} kilos` : '';
-  return `${ex.sets} sets of ${reps}${ex.repsNote ? `, ${ex.repsNote}` : ''}${kg}`;
+// Speech-friendly exercise description: "3 sets of 12, per leg".
+export function doseText(ex) {
+  const reps = String(ex.reps).replace('–', ' to ').replace(/(\d+) s\b/, '$1 seconds');
+  return `${ex.sets} sets of ${reps}${ex.repsNote ? `, ${ex.repsNote}` : ''}`;
 }

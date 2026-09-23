@@ -88,30 +88,17 @@ async function play(parts, fallbackText) {
 
 // ---------- Phrases ----------
 
-const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
-const setKey = (n, m) => `s/${n}-of-${m}`;
-const setText = (n, m) => `Set ${words[n] ?? n} of ${words[m] ?? m}.`;
-
 // Name + dose clip when the recording still matches the exercise, else just the name.
 function introParts(ex) {
   const d = INTRO_DOSE[ex.id];
   const same = d && d.sets === ex.sets && d.reps === ex.reps && (d.repsNote ?? null) === (ex.repsNote ?? null);
   return same ? [`i/${ex.id}`] : [`n/${ex.id}`];
 }
-const introText = (ex) => `${ex.name}. ${tts.doseText(ex, 0)}.`;
+const introText = (ex) => `${ex.name}. ${tts.doseText(ex)}.`;
 
 export const coach = {
   start: (ex) => play(['p/lets-go', ...introParts(ex)], `Let's go! First up: ${introText(ex)}`),
   exercise: (ex) => play(['p/next-ex', ...introParts(ex)], `Next exercise: ${introText(ex)}`),
-  rest: (ex, setNo, changed) =>
-    play(
-      [changed ? 'p/rest-next-ex' : 'p/rest-next', `n/${ex.id}`, setKey(setNo, ex.sets)],
-      `Rest. Next ${changed ? 'exercise' : 'up'}: ${ex.name}, ${setText(setNo, ex.sets)}`,
-    ),
-  now: (ex, setNo) => play(['p/now', `n/${ex.id}`, setKey(setNo, ex.sets)], `Now: ${ex.name}, ${setText(setNo, ex.sets)}`),
-  tenSeconds: () => play(['p/10s'], 'Ten seconds.'),
-  count: (n) => play([`p/${n}`], words[n]),
-  go: (ex, setNo) => play(['p/go', `n/${ex.id}`, setKey(setNo, ex.sets)], `Go! ${ex.name}, ${setText(setNo, ex.sets)}`),
   done: () => play(['p/done'], 'Workout complete. Nice work!'),
   voiceOn: () => play(['p/voice-on'], 'Voice coach on.'),
 };

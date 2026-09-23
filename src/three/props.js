@@ -69,6 +69,30 @@ function dumbbell() {
   return g;
 }
 
+// Olympic-style bar along local X, centred on the group origin.
+function barbell() {
+  const g = new THREE.Group();
+  const bar = new THREE.Mesh(unitCyl, propMats.metal);
+  bar.scale.set(0.014, 1.6, 0.014);
+  bar.rotation.z = Math.PI / 2;
+  g.add(bar);
+  for (const s of [1, -1]) {
+    const plate = new THREE.Mesh(unitCyl, propMats.metal);
+    plate.scale.set(0.2, 0.045, 0.2);
+    plate.rotation.z = Math.PI / 2;
+    plate.position.x = 0.6 * s;
+    const collar = new THREE.Mesh(unitCyl, propMats.frame);
+    collar.scale.set(0.03, 0.03, 0.03);
+    collar.rotation.z = Math.PI / 2;
+    collar.position.x = 0.56 * s;
+    g.add(plate, collar);
+  }
+  return g;
+}
+
+// Palm centre of a hand, in world space.
+const PALM = new THREE.Vector3(0, -0.045, 0);
+
 function legs(group, xs, zs, top) {
   for (const x of xs) for (const z of zs) group.add(box(propMats.frame, [0.04, top, 0.04], [x, top / 2, z]));
 }
@@ -207,8 +231,124 @@ export function buildProps(spec = {}, figure) {
     group.add(box(propMats.frame, [0.4, 0.4, 0.05], [0, 0.25, 0.82], -0.35));
   }
 
+  const palm = (side, out) => out.copy(PALM).applyMatrix4(figure.bones[`hand${side}`].matrixWorld);
+
+  // Barbell through both palms (bench, squat, RDL, hip thrust).
+  if (spec.barbell) {
+    const bb = barbell();
+    group.add(bb);
+    updaters.push(() => {
+      palm('L', _a);
+      palm('R', _b);
+      bb.position.copy(_a).add(_b).multiplyScalar(0.5);
+      _c.subVectors(_a, _b).normalize();
+      bb.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), _c);
+    });
+  }
+
+  // One dumbbell held upright in both hands (overhead extension).
+  if (spec.heldDumbbell) {
+    const db = dumbbell();
+    group.add(db);
+    const elbow = new THREE.Vector3();
+    updaters.push(() => {
+      palm('L', _a);
+      palm('R', _b);
+      const mid = _a.add(_b).multiplyScalar(0.5);
+      figure.bones.foreArmL.getWorldPosition(elbow);
+      figure.bones.foreArmR.getWorldPosition(_c);
+      elbow.add(_c).multiplyScalar(0.5);
+      _c.subVectors(mid, elbow).normalize();
+      db.position.copy(mid).addScaledVector(_c, 0.03);
+      db.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), _c);
+    });
+  }
+
+  if (spec.mat) {
+    const { z = 0, length = 1.9 } = spec.mat;
+    group.add(box(propMats.pad, [0.66, 0.012, length], [0, 0.006, z]));
+  }
+
+  if (spec.step) {
+    const { z = 0.16, depth = 0.26, h = 0.14 } = spec.step;
+    group.add(box(propMats.pad, [0.56, h, depth], [0, h / 2, z]));
+  }
+
+  if (spec.uprightBench) {
+    group.add(box(propMats.pad, [0.34, 0.08, 0.38], [0, 0.41, 0.02]));
+    group.add(box(propMats.pad, [0.3, 0.8, 0.07], [0, 0.88, -0.2], -0.08));
+    legs(group, [-0.12, 0.12], [-0.12, 0.16], 0.37);
+    group.add(box(propMats.frame, [0.05, 0.5, 0.05], [0, 0.6, -0.26], -0.08));
+  }
+
+  // 45° leg press: reclined seat, sled platform that follows the feet.
+  if (spec.legPress) {
+    const d = new THREE.Vector3(0, Math.SQRT1_2, Math.SQRT1_2);
+    group.add(box(propMats.pad, [0.42, 0.08, 0.44], [0, 0.36, 0.02]));
+    const back = box(propMats.pad, [0.42, 0.08, 0.8], [0, 0.6, -0.34], 0.87);
+    group.add(back);
+    group.add(box(propMats.frame, [0.1, 0.32, 0.9], [0, 0.16, -0.2]));
+    for (const s of [1, -1]) {
+      group.add(fixedStick(propMats.frame, 0.03, [0.34 * s, 0.1, 0.25], [0.34 * s, 1.55, 1.7]));
+      group.add(fixedStick(propMats.metal, 0.016, [0.29 * s, 0.4, 0.05], [0.29 * s, 0.4, 0.28]));
+    }
+    const sled = new THREE.Group();
+    sled.add(box(propMats.pad, [0.62, 0.62, 0.05], [0, 0, 0]));
+    sled.add(box(propMats.frame, [0.72, 0.1, 0.14], [0, -0.3, 0.08]));
+    group.add(sled);
+    sled.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d);
+    updaters.push(() => {
+      figure.bones.footL.getWorldPosition(_a);
+      figure.bones.footR.getWorldPosition(_b);
+      sled.position.copy(_a).add(_b).multiplyScalar(0.5).addScaledVector(d, 0.105);
+      sled.position.x = 0;
+    });
+  }
+
+  // Leg extension / seated leg curl: seat, back pad and a roller on the shins.
+  if (spec.legMachine) {
+    const { curl = false } = spec.legMachine;
+    group.add(box(propMats.pad, [0.44, 0.09, 0.5], [0, 0.44, 0.2]));
+    group.add(box(propMats.pad, [0.44, 0.7, 0.08], [0, 0.88, -0.12], 0.14));
+    group.add(box(propMats.frame, [0.1, 0.4, 0.1], [0, 0.2, 0.2]));
+    if (curl) group.add(box(propMats.pad, [0.44, 0.08, 0.16], [0, 0.66, 0.34]));
+    const knee = figure.bones.shinL.getWorldPosition(new THREE.Vector3());
+    group.add(box(propMats.frame, [0.08, knee.y, 0.08], [0.34, knee.y / 2, knee.z]));
+    const roller = new THREE.Mesh(unitCyl, propMats.pad);
+    const lever = stick(propMats.frame, 0.02);
+    group.add(roller, lever);
+    const pivot = new THREE.Vector3(0.34, knee.y, knee.z);
+    const n = new THREE.Vector3();
+    updaters.push(() => {
+      figure.bones.footL.getWorldPosition(_a);
+      figure.bones.shinL.getWorldPosition(_b);
+      _c.subVectors(_a, _b).normalize(); // shin direction, knee → ankle
+      n.set(0, _c.z, -_c.y); // shin normal in YZ; front of shin for extensions
+      if (curl) n.negate();
+      roller.position.set(0, _a.y, _a.z).addScaledVector(_c, -0.05).addScaledVector(n, 0.09);
+      roller.scale.set(0.055, 0.44, 0.055);
+      roller.rotation.set(0, 0, Math.PI / 2);
+      placeStick(lever, pivot, _b.set(0.34, roller.position.y, roller.position.z));
+    });
+  }
+
+  // Two cable columns, one handle per hand (cable fly).
+  if (spec.cables) {
+    for (const { from, column, hand: side } of spec.cables) {
+      const pulley = new THREE.Vector3(...from);
+      group.add(box(propMats.frame, [0.14, 2.4, 0.14], [column[0], 1.2, column[2]]));
+      const wheel = new THREE.Mesh(unitCyl, propMats.metal);
+      wheel.scale.set(0.05, 0.03, 0.05);
+      wheel.position.copy(pulley);
+      group.add(wheel);
+      const line = stick(propMats.cable, 0.007);
+      group.add(line);
+      updaters.push(() => placeStick(line, pulley, palm(side, _a)));
+    }
+  }
+
   if (spec.cable) {
-    const { from, column, rope, vHandle, hands = ['L', 'R'] } = spec.cable;
+    const { from, column, rope, vHandle, bar, hands = ['L', 'R'] } = spec.cable;
     const pulley = new THREE.Vector3(...from);
     group.add(box(propMats.frame, [0.14, 2.4, 0.14], [column[0], 1.2, column[2]]));
     // Arm from column to pulley.
@@ -220,10 +360,24 @@ export function buildProps(spec = {}, figure) {
     group.add(wheel);
     const main = stick(propMats.cable, 0.007);
     group.add(main);
-    const split = hands.length === 2 ? [stick(propMats.cable, rope ? 0.012 : 0.01), stick(propMats.cable, rope ? 0.012 : 0.01)] : [];
+    const split = hands.length === 2 && !bar ? [stick(propMats.cable, rope ? 0.012 : 0.01), stick(propMats.cable, rope ? 0.012 : 0.01)] : [];
     if (split.length) group.add(...split);
     const knot = new THREE.Vector3();
+    if (bar) {
+      // Straight bar through both hands, extended past them; the cable meets it in the middle.
+      const handle = stick(propMats.metal, 0.014);
+      group.add(handle);
+      updaters.push(() => {
+        palm('L', _a);
+        palm('R', _b);
+        const mid = knot.copy(_a).add(_b).multiplyScalar(0.5);
+        _c.subVectors(_a, _b).normalize().multiplyScalar(bar / 2);
+        placeStick(handle, mid.clone().add(_c), mid.clone().sub(_c));
+        placeStick(main, pulley, mid);
+      });
+    }
     updaters.push(() => {
+      if (bar) return;
       if (hands.length === 1) {
         hand(hands[0], _a);
         placeStick(main, pulley, _a);

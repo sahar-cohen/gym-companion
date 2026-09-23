@@ -7,19 +7,21 @@
 <div id="v"></div>
 <script type="module">
 import { Viewer } from './src/three/viewer.js';
-import { ANIMATIONS } from './src/three/animations.js';
-import { DEFAULT_WORKOUTS } from './src/data/workouts.js';
-const exs = DEFAULT_WORKOUTS.flatMap(w => w.exercises).flatMap(e => e.variants ? e.variants.map(v => ({...e, ...v, name: e.name + ' / ' + v.label})) : [e]);
+import { LIBRARY } from './src/data/exercises.js';
+const exs = LIBRARY.flatMap(e => e.variants ? e.variants.map(v => ({...e, ...v, name: e.name + ' / ' + v.label})) : [e]);
 const v = new Viewer(); window.viewer = v; v.mount(document.getElementById('v'));
 const sel = document.getElementById('sel');
 sel.innerHTML = exs.map((e,i)=>`<option value=${i}>${e.name}</option>`).join('');
 const show = () => { v.show(exs[sel.value]); };
 sel.onchange = show;
-const q = new URLSearchParams(location.search); if (q.get('i')) sel.value = q.get('i');
+const q = new URLSearchParams(location.search);
+if (q.get('i')) sel.value = q.get('i');
+if (q.get('id')) sel.value = exs.findIndex(e => e.id === q.get('id'));
 show(); v.start();
 window.freeze = (s) => { v.stop(); const a = v.anim; v.figure.applyPose(a.pose(s)); v.figure.setGlow(s); v.props.update(); v.renderOnce(); };
 window.cam = (az, el, dist, y) => { v.defaultCam = {...v.defaultCam, az, el, dist: dist ?? v.defaultCam.dist, y: y ?? v.defaultCam.y}; v.resetView(); v.renderOnce(); };
 document.getElementById('freeze').onclick = () => freeze(0);
 document.getElementById('freeze1').onclick = () => freeze(1);
 document.getElementById('play').onclick = () => v.start();
+window.ready = true;
 </script></body></html>

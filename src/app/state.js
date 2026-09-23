@@ -1,29 +1,62 @@
 // App state shared by all screens, plus its persistence.
 import { DEFAULT_WORKOUTS, WORKOUTS_VERSION } from '../data/workouts.js';
+import { EXERCISES } from '../data/exercises.js';
 import { load, save, remove } from '../lib/storage.js';
 
 const DEFAULT_SETTINGS = {
-  rest: 90,
-  sound: true,
-  vibrate: true,
   voice: true,
   theme: 'system',
 };
 
+// Stored workouts are full copies; fill in technique notes added to the
+// library since they were saved (e.g. "avoid").
+function backfill(workouts) {
+  for (const w of workouts) {
+    for (const ex of w.exercises) {
+      const lib = EXERCISES[ex.id];
+      if (!lib) continue;
+      ex.avoid ??= lib.avoid;
+      if (!ex.cues?.length) ex.cues = lib.cues;
+    }
+  }
+  return workouts;
+}
+
 function loadWorkouts() {
   const stored = load('workouts', null);
-  return stored?.version === WORKOUTS_VERSION && Array.isArray(stored.items) ? stored.items : structuredClone(DEFAULT_WORKOUTS);
+  const items = stored?.version === WORKOUTS_VERSION && Array.isArray(stored.items) ? stored.items : structuredClone(DEFAULT_WORKOUTS);
+  return backfill(items);
 }
+
+// v1 logged weight and reps; that's gone. Keep only when each workout was last done.
+function migrate() {
+  const history = load('history', null);
+  if (!history) return load('lastDone', {});
+  const lastDone = load('lastDone', {});
+  for (const r of history) lastDone[r.workoutId] = Math.max(lastDone[r.workoutId] ?? 0, r.startedAt);
+  save('lastDone', lastDone);
+  for (const k of ['history', 'restOverrides', 'selected', 'sp.tokens', 'sp.pkce']) remove(k);
+  return lastDone;
+}
+
+const settings = { ...DEFAULT_SETTINGS, ...load('settings', {}) };
+for (const k of Object.keys(settings)) if (!(k in DEFAULT_SETTINGS)) delete settings[k];
 
 export const state = {
   workouts: loadWorkouts(),
-  settings: { ...DEFAULT_SETTINGS, ...load('settings', {}) },
-  restOverrides: load('restOverrides', {}),
+  settings,
   variants: load('variants', {}),
-  selectedId: load('selected', 'full-body'),
+  lastDone: migrate(),
+  picks: load('picks', []), // library exercise ids for a custom workout
   session: load('session', null),
-  screen: 'home', // home | workout | done | editor
+  screen: 'home', // home | plan | exercise | workout | done | editor
+  tab: load('tab', 'workouts'), // home: workouts | library
+  libGroup: 'all',
+  libQuery: '',
+  planId: null, // workout shown on the plan screen
+  detail: null, // exercise screen: { id, from: 'library' | 'plan', index }
   editor: null, // { workoutId }
+  summary: null,
   hintSeen: load('hintSeen', false),
   installDismissed: load('installDismissed', false),
   toast: null,
@@ -35,10 +68,12 @@ export const render = () => renderFn();
 
 export const saveSettings = () => save('settings', state.settings);
 export const saveWorkouts = () => save('workouts', { version: WORKOUTS_VERSION, items: state.workouts });
+export const savePicks = () => save('picks', state.picks);
 export const persistSession = () => (state.session ? save('session', state.session) : remove('session'));
 
 export const workoutById = (id) => state.workouts.find((w) => w.id === id);
-export const currentWorkout = () => workoutById(state.session?.workoutId);
+// Custom workouts started from the library live only in the session.
+export const currentWorkout = () => state.session?.workout ?? workoutById(state.session?.workoutId);
 
 export function resetWorkouts() {
   state.workouts = structuredClone(DEFAULT_WORKOUTS);
@@ -52,14 +87,9 @@ export function resolve(ex) {
   return { ...ex, animation: v.animation, camera: v.camera, variantId: v.id };
 }
 
-export const restFor = (ex) => state.restOverrides[ex.id] ?? ex.rest ?? state.settings.rest;
-
 export function validSession(s) {
-  const w = s && workoutById(s.workoutId);
-  if (!w || s.finishedAt || s.done?.length !== w.exercises.length) return false;
-  if (!w.exercises.every((e, i) => s.done[i].length === e.sets)) return false;
-  // Sessions saved before weight logging existed get an empty log.
-  s.log ??= w.exercises.map((e) => Array(e.sets).fill(null));
-  s.draft ??= {};
-  return true;
+  const w = s && (s.workout ?? workoutById(s.workoutId));
+  if (!w || !Array.isArray(s.done) || s.done.length !== w.exercises.length) return false;
+  if (!s.done.every((d) => typeof d === 'boolean')) return false; // v1 sessions tracked sets
+  return s.exIndex >= 0 && s.exIndex < w.exercises.length;
 }

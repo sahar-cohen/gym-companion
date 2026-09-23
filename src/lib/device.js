@@ -1,4 +1,4 @@
-// Screen wake lock, rest-end sound, vibration. All optional; failures are ignored.
+// Screen wake lock, audio unlock, haptic taps. All optional; failures are ignored.
 
 let lock = null;
 let wantLock = false;
@@ -63,37 +63,6 @@ export async function audioReady() {
   return c.state === 'running' ? c : null;
 }
 
-export function chime() {
-  if (!ctx || ctx.state !== 'running') return;
-  const t0 = ctx.currentTime;
-  [0, 0.18, 0.36].forEach((dt, k) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = k === 2 ? 1320 : 880;
-    gain.gain.setValueAtTime(0.0001, t0 + dt);
-    gain.gain.exponentialRampToValueAtTime(0.5, t0 + dt + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + (k === 2 ? 0.45 : 0.14));
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(t0 + dt);
-    osc.stop(t0 + dt + 0.5);
-  });
-}
-
-export function tick() {
-  if (!ctx || ctx.state !== 'running') return;
-  const t0 = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.frequency.value = 660;
-  gain.gain.setValueAtTime(0.0001, t0);
-  gain.gain.exponentialRampToValueAtTime(0.25, t0 + 0.005);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.08);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(t0);
-  osc.stop(t0 + 0.1);
-}
-
 export const canVibrate = typeof navigator.vibrate === 'function';
 
 // iOS has no Vibration API. Toggling a hidden <input switch> through its label
@@ -124,14 +93,6 @@ export function haptic() {
       document.body.append(input, hapticLabel);
     }
     hapticLabel.click();
-  } catch {
-    /* ignore */
-  }
-}
-
-export function buzz(pattern = [220, 100, 220, 100, 400]) {
-  try {
-    navigator.vibrate?.(pattern);
   } catch {
     /* ignore */
   }

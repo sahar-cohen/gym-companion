@@ -1,128 +1,88 @@
-import { state, render, persistSession, workoutById, currentWorkout, restFor, saveWorkouts } from '../app/state.js';
+import { state, render, persistSession, currentWorkout, saveWorkouts } from '../app/state.js';
 import { esc, daysAgo, isIOS, isStandalone, uid } from '../app/util.js';
 import { muscleName } from '../data/muscles.js';
 import { save } from '../lib/storage.js';
-import { totals } from '../lib/session.js';
+import { doneCount } from '../lib/session.js';
 import { keepAwake } from '../lib/device.js';
-import { allHistory } from '../lib/history.js';
 import { icon } from '../ui/icons.js';
-import { confirmSheet, closeSheet } from '../ui/sheets.js';
-import { startWorkout } from './workout.js';
+import { libraryHtml, pickTray, bindLibrary } from './library.js';
 import { openEditor } from './editor.js';
 
-function workoutStats(w) {
-  const sets = w.exercises.reduce((n, e) => n + e.sets, 0);
-  const restSec = w.exercises.reduce((n, e) => n + e.sets * restFor(e), 0);
-  const minutes = Math.round((sets * 45 + restSec) / 60);
-  const muscles = [...new Set(w.exercises.flatMap((e) => e.primary))].map(muscleName);
-  return { sets, minutes, muscles };
+// Rough session length: ~2.5 min per set including rest.
+export function workoutMinutes(w) {
+  return Math.round(w.exercises.reduce((n, e) => n + (e.sets || 3) * 2.5, 0) / 5) * 5;
 }
 
-export function renderHome(app) {
-  const sel = workoutById(state.selectedId) ?? state.workouts[0];
+export function workoutMuscles(w) {
+  return [...new Set(w.exercises.flatMap((e) => e.primary))].map(muscleName);
+}
+
+function workoutsHtml() {
   const s = state.session;
   const sw = s && currentWorkout();
-  const recent = allHistory().slice(0, 3);
-
-  const install =
-    isIOS && !isStandalone && !state.installDismissed
-      ? `<section class="install">
-          <div class="install-text"><b>Install on your iPhone</b>
-            <span>Tap ${icon.share} Share, then <b>Add to Home Screen</b>. It opens full screen, works offline and keeps your history safe.</span></div>
-          <button class="icon-btn sm" data-action="dismiss-install" aria-label="Dismiss">${icon.close}</button>
-        </section>`
-      : '';
-
   const resume = sw
-    ? `<section class="resume">
-        <div>
-          <div class="eyebrow">In progress</div>
-          <div class="resume-title">${esc(sw.name)} · ${totals(s).done}/${totals(s).total} sets</div>
-        </div>
-        <button class="btn btn-ghost" data-action="discard">Discard</button>
-        <button class="btn btn-primary" data-action="resume">Resume</button>
-      </section>`
+    ? `<div class="resume">
+        <span class="resume-dot" aria-hidden="true"></span>
+        <span class="resume-text"><b>${esc(sw.name)}</b> in progress · ${doneCount(s)} of ${s.done.length} done</span>
+        <button class="btn btn-text" data-action="discard">Discard</button>
+        <button class="btn btn-primary btn-sm" data-action="resume">Resume</button>
+      </div>`
     : '';
 
-  const cards = state.workouts
+  const rows = state.workouts
     .map((w) => {
-      const st = workoutStats(w);
-      const on = w.id === sel.id;
-      const last = recent.length ? allHistory().find((r) => r.workoutId === w.id) : null;
-      return `<button class="wcard ${on ? 'is-on' : ''}" data-action="select" data-id="${w.id}" aria-pressed="${on}">
-        <span class="wcard-radio" aria-hidden="true"></span>
-        <span class="wcard-body">
-          <span class="wcard-name">${esc(w.name)}</span>
-          ${
-            w.exercises.length
-              ? `<span class="wcard-meta">${w.exercises.length} exercise${w.exercises.length === 1 ? '' : 's'} · ${st.sets} sets · ~${st.minutes} min</span>
-                 <span class="wcard-muscles">${st.muscles.slice(0, 6).map(esc).join(' · ')}</span>`
-              : `<span class="wcard-meta">No exercises yet</span>`
-          }
-          ${last ? `<span class="wcard-extra">Last done ${daysAgo(last.startedAt)}</span>` : ''}
+      const n = w.exercises.length;
+      const last = state.lastDone[w.id];
+      const meta = n ? [`${n} exercise${n === 1 ? '' : 's'}`, `~${workoutMinutes(w)} min`, last ? `last ${daysAgo(last)}` : null].filter(Boolean).join(' · ') : 'No exercises yet';
+      return `<button class="wrow" data-action="open-plan" data-id="${w.id}">
+        <span class="wrow-body">
+          <span class="wrow-name">${esc(w.name)}</span>
+          <span class="wrow-meta">${esc(meta)}</span>
+          ${n ? `<span class="wrow-muscles">${workoutMuscles(w).slice(0, 5).map(esc).join(' · ')}</span>` : ''}
         </span>
+        ${icon.next}
       </button>`;
     })
     .join('');
 
-  const empty = sel.exercises.length === 0;
-  const emptyNote = empty
-    ? `<div class="empty">
-        <div class="empty-title">Add exercises</div>
-        <p>${esc(sel.name)} has no exercises yet. Add them from your coach’s plan.</p>
-        <button class="btn btn-primary" data-action="edit" data-id="${sel.id}">${icon.plus}<span>Add exercises</span></button>
-      </div>`
-    : '';
+  return `${resume}
+    <div class="wrows">${rows}</div>
+    <button class="add-line" data-action="new-workout">${icon.plus}<span>New workout</span></button>`;
+}
 
-  const recentList = recent.length
-    ? `<div class="section-row"><h2 class="section-title">Recent</h2><button class="linkbtn-inline" data-action="history-all">All history</button></div>
-       <div class="recent">${recent
-         .map((r) => {
-           const sets = r.exercises.reduce((n, e) => n + e.sets.length, 0);
-           return `<button class="recent-row" data-action="open-summary" data-id="${r.id}">
-             <span><b>${esc(r.workoutName)}</b><small>${daysAgo(r.startedAt)} · ${sets} set${sets === 1 ? '' : 's'}</small></span>${icon.next}
-           </button>`;
-         })
-         .join('')}</div>`
-    : '';
+export function renderHome(app) {
+  const lib = state.tab === 'library';
+  const install =
+    isIOS && !isStandalone && !state.installDismissed
+      ? `<div class="install">
+          <p>Install: tap ${icon.share} Share, then <b>Add to Home Screen</b>. It opens full screen and works offline.</p>
+          <button class="icon-btn sm" data-action="dismiss-install" aria-label="Dismiss">${icon.close}</button>
+        </div>`
+      : '';
 
   app.innerHTML = `
-    <div class="screen home">
+    <div class="screen home ${lib && state.picks.length ? 'has-tray' : ''}">
       <header class="home-top">
-        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Gym Companion</div>
+        <span class="wordmark">Gym Companion</span>
         <button class="icon-btn" data-action="settings" aria-label="Settings">${icon.gear}</button>
       </header>
       ${install}
-      <h1 class="home-title">Today’s<br>workout</h1>
-      ${resume}
-      <div class="wlist" role="list">${cards}</div>
-      <div class="wtools">
-        ${empty ? '' : `<button class="btn btn-ghost" data-action="edit" data-id="${sel.id}">${icon.edit}<span>Edit ${esc(sel.name)}</span></button>`}
-        <button class="btn btn-ghost" data-action="new-workout">${icon.plus}<span>New workout</span></button>
-      </div>
-      ${emptyNote}
-      ${recentList}
-      <div class="home-dock">
-        <button class="btn btn-primary btn-xl" data-action="start" ${empty ? 'disabled' : ''}>
-          ${empty ? 'Add exercises first' : `${icon.play}<span>Start ${esc(sel.name)}</span>`}
-        </button>
-      </div>
+      <nav class="tabs" role="tablist">
+        <button role="tab" aria-selected="${!lib}" class="${lib ? '' : 'is-on'}" data-action="tab" data-tab="workouts">Workouts</button>
+        <button role="tab" aria-selected="${lib}" class="${lib ? 'is-on' : ''}" data-action="tab" data-tab="library">Library</button>
+      </nav>
+      ${lib ? libraryHtml() : workoutsHtml()}
+      ${lib ? pickTray() : ''}
     </div>`;
+  if (lib) bindLibrary(app);
 }
 
 export const homeActions = {
-  select: (el) => {
-    state.selectedId = el.dataset.id;
-    save('selected', state.selectedId);
+  tab: (el) => {
+    state.tab = el.dataset.tab;
+    save('tab', state.tab);
     render();
-  },
-  start: () =>
-    state.session
-      ? confirmSheet('Start over?', 'You have a workout in progress. Starting a new one discards it.', 'Start new', 'start-new')
-      : startWorkout(state.selectedId),
-  'start-new': () => {
-    closeSheet();
-    startWorkout(state.selectedId);
+    window.scrollTo(0, 0);
   },
   resume: () => {
     state.screen = 'workout';
@@ -139,13 +99,10 @@ export const homeActions = {
     save('installDismissed', true);
     render();
   },
-  edit: (el) => openEditor(el.dataset.id),
   'new-workout': () => {
     const w = { id: uid('w'), name: `Workout ${state.workouts.length + 1}`, exercises: [] };
     state.workouts.push(w);
     saveWorkouts();
-    state.selectedId = w.id;
-    save('selected', w.id);
     openEditor(w.id);
   },
 };

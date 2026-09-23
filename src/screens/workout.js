@@ -1,19 +1,13 @@
-import { state, render, persistSession, currentWorkout, workoutById, resolve, restFor, saveSettings } from '../app/state.js';
-import { esc, fmtClock, fmtKg, fmtDate, daysAgo, targetReps } from '../app/util.js';
+import { state, render, persistSession, currentWorkout, workoutById, resolve, saveSettings } from '../app/state.js';
+import { esc, fmtDuration } from '../app/util.js';
 import { getViewer } from '../app/viewer.js';
-import { muscleName } from '../data/muscles.js';
 import { save } from '../lib/storage.js';
-import { newSession, blocks, afterSet, doneCount, isComplete, totals, supersetLabel } from '../lib/session.js';
-import { keepAwake, chime, tick, buzz, haptic } from '../lib/device.js';
-import { lastFor, seriesFor, volume, toRecord, addRecord, bestBefore } from '../lib/history.js';
+import { newSession, blocks, doneCount, nextOpen, supersetLabel, supersetPartners } from '../lib/session.js';
+import { keepAwake, haptic } from '../lib/device.js';
 import { coach, stop as stopCoach, preload as preloadCoach } from '../lib/coach.js';
 import { icon } from '../ui/icons.js';
-import { openSheet, closeSheet, confirmSheet, sheetHead, tintStatusBar } from '../ui/sheets.js';
-import { progressChart } from '../ui/chart.js';
-
-let shownKey = null;
-
-// ---------- Helpers ----------
+import { openSheet, closeSheet, sheetHead } from '../ui/sheets.js';
+import { techniqueNotes, stageHtml, mountStage, forgetStage } from '../ui/technique.js';
 
 // Voice coach, only when enabled.
 const say = (fn, ...args) => {
@@ -22,44 +16,8 @@ const say = (fn, ...args) => {
   coach[fn](...args);
 };
 
-// Current weight/reps for the next set of exercise i.
-function draftFor(i) {
-  const s = state.session;
-  const ex = currentWorkout().exercises[i];
-  if (s.draft[i]) return s.draft[i];
-  const logged = s.log[i].filter(Boolean).at(-1);
-  const last = lastFor(ex.id, s.startedAt)?.sets[0];
-  const d = logged ?? last ?? { w: ex.weight ?? 0, r: targetReps(ex.reps) };
-  s.draft[i] = { w: ex.bodyweight ? 0 : d.w, r: d.r };
-  return s.draft[i];
-}
-
-const setLabel = (ex, x) => (ex.bodyweight || !x.w ? `${x.r} reps` : `${fmtKg(x.w)}×${x.r}`);
-
-function lastTimeText(ex) {
-  const last = lastFor(ex.id, state.session?.startedAt ?? Infinity);
-  if (!last) return null;
-  const top = last.sets[0];
-  const all = last.sets.map((x) => x.r).join(', ');
-  const same = last.sets.every((x) => x.w === top.w);
-  const main = ex.bodyweight || !top.w ? `${all} reps` : same ? `${fmtKg(top.w)} kg × ${all}` : last.sets.map((x) => setLabel(ex, x)).join(', ');
-  return { short: `Last ${setLabel(ex, top)}`, full: `${main}, ${daysAgo(last.at)}` };
-}
-
-function blockOfIndex(w, i) {
-  return blocks(w).find((b) => b.includes(i));
-}
-
-// The first open exercise after the current block (supersets count as one).
-function upNext(w, s) {
-  const b = blockOfIndex(w, s.exIndex);
-  const n = w.exercises.findIndex((e, k) => k > b[b.length - 1] && !isComplete(s, k));
-  return n >= 0 ? w.exercises[n].name : null;
-}
-
-function announceExercise(i, first = false) {
-  say(first ? 'start' : 'exercise', currentWorkout().exercises[i]);
-}
+const pad2 = (n) => String(n).padStart(2, '0');
+const doseText = (ex) => `${ex.sets} × ${ex.reps}`;
 
 let toastTimer;
 export function showToast(text) {
@@ -74,94 +32,23 @@ export function showToast(text) {
   }, 3200);
 }
 
-function flash(title, sub) {
-  document.querySelector('.go-flash')?.remove();
-  document.body.insertAdjacentHTML(
-    'beforeend',
-    `<div class="go-flash" data-action="dismiss-flash" role="alert"><b>${esc(title)}</b><span>${esc(sub)}</span></div>`,
-  );
-  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-  tintStatusBar(accent); // the orange should reach the top edge too
-  setTimeout(() => document.querySelector('.go-flash')?.classList.add('is-out'), 1600);
-  setTimeout(removeFlash, 2100);
-}
-
-function removeFlash() {
-  if (!document.querySelector('.go-flash')) return;
-  document.querySelector('.go-flash').remove();
-  tintStatusBar();
-}
-
 // ---------- Render ----------
 
-function progressBar(w, s) {
-  return blocks(w)
-    .map((b) => {
-      const total = b.reduce((n, i) => n + s.done[i].length, 0);
-      const done = b.reduce((n, i) => n + doneCount(s, i), 0);
-      const skipped = b.every((i) => s.skipped[i] && !isComplete(s, i));
-      return `<span class="seg ${b.includes(s.exIndex) ? 'is-cur' : ''} ${skipped ? 'is-skipped' : ''}" style="flex-grow:${total}">
-        <span class="seg-fill" style="width:${(done / total) * 100}%"></span></span>`;
-    })
+function progress(w, s) {
+  return w.exercises
+    .map((_, i) => `<span class="tick ${s.done[i] ? 'is-done' : ''} ${i === s.exIndex ? 'is-cur' : ''}"></span>`)
     .join('');
 }
 
-function setButtons(ex, i, s) {
-  const nextSet = s.done[i].indexOf(false);
-  return s.done[i]
-    .map((d, j) => {
-      const logged = s.log[i][j];
-      const cls = d ? 'is-done' : j === nextSet ? 'is-next' : '';
-      return `<button class="set ${cls}" data-action="set" data-i="${i}" data-j="${j}" aria-pressed="${d}" aria-label="Set ${j + 1}${d ? ', done' : ''}">
-        <span class="set-num">${d ? icon.check : j + 1}</span>
-        <span class="set-reps">${loadLabel(ex, d && logged ? logged : draftFor(i))}</span>
-      </button>`;
-    })
-    .join('');
-}
-
-// "10 kg × 12", or "12 reps" when there is no weight.
-const loadLabel = (ex, x) => (ex.bodyweight || !x.w ? `${x.r} reps` : `${fmtKg(x.w)} kg × ${x.r}`);
-
-function logger(ex, i) {
-  const d = draftFor(i);
-  const weight = ex.bodyweight
-    ? ''
-    : `<div class="logf">
-        <button class="logf-btn" data-action="log-step" data-f="w" data-d="-2.5" aria-label="Less weight">${icon.minus}</button>
-        <label class="logf-val"><input data-log="w" inputmode="decimal" enterkeyhint="done" value="${fmtKg(d.w)}" aria-label="Weight in kg"><span>kg</span></label>
-        <button class="logf-btn" data-action="log-step" data-f="w" data-d="2.5" aria-label="More weight">${icon.plus}</button>
-      </div>`;
-  return `<div class="logger ${ex.bodyweight ? 'is-single' : ''}">
-    ${weight}
-    <div class="logf">
-      <button class="logf-btn" data-action="log-step" data-f="r" data-d="-1" aria-label="Fewer reps">${icon.minus}</button>
-      <label class="logf-val"><input data-log="r" inputmode="numeric" enterkeyhint="done" value="${d.r}" aria-label="Reps"><span>reps</span></label>
-      <button class="logf-btn" data-action="log-step" data-f="r" data-d="1" aria-label="More reps">${icon.plus}</button>
-    </div>
-  </div>`;
-}
-
-function restSheet(w, s) {
-  const r = s.rest;
-  if (!r) return '';
-  const ex = w.exercises[s.exIndex];
-  const next = `Set ${Math.min(doneCount(s, s.exIndex) + 1, ex.sets)} of ${ex.sets}`;
-  const left = (r.endsAt - Date.now()) / 1000;
-  const fresh = Date.now() - (r.startedAt ?? 0) < 500;
-  return `<section class="rest ${fresh ? 'is-new' : ''}" aria-live="polite">
-    <div class="rest-main">
-      <button class="round-btn" data-action="rest-minus" aria-label="15 seconds less">−15</button>
-      <div class="rest-center">
-        <span class="eyebrow">Rest</span>
-        <div class="rest-time" id="rest-time">${fmtClock(left)}</div>
-      </div>
-      <button class="round-btn" data-action="rest-plus" aria-label="15 seconds more">+15</button>
-      <button class="btn btn-ink btn-sm rest-skip" data-action="rest-skip">Skip</button>
-    </div>
-    <div class="rest-bar"><span id="rest-fill" style="width:${Math.max(0, Math.min(1, left / r.duration)) * 100}%"></span></div>
-    <div class="rest-next">Next: <b>${esc(ex.name)}</b> · ${next}</div>
-  </section>`;
+// "Straight into Rear delt fly" / "Then rest, back to Lateral raise".
+function supersetLine(w, i) {
+  const ss = supersetPartners(w, i);
+  if (!ss) return '';
+  const label = supersetLabel(w, i);
+  const last = ss.pos === ss.block.length - 1;
+  const other = w.exercises[last ? ss.block[0] : ss.block[ss.pos + 1]];
+  const text = last ? `Rest after this, then back to ${other.name}` : `No rest. Go straight into ${other.name}`;
+  return `<p class="superset"><span class="superset-tag">Superset ${label}</span><span>${esc(text)}</span></p>`;
 }
 
 export function renderWorkout(app) {
@@ -169,150 +56,92 @@ export function renderWorkout(app) {
   const s = state.session;
   const i = s.exIndex;
   const ex = resolve(w.exercises[i]);
-  const ss = supersetLabel(w, i);
-  const t = totals(s);
   const n = w.exercises.length;
-  const nextName = upNext(w, s);
-
-  const variantSwitch = ex.variants?.length
-    ? `<div class="seg-ctl" role="group" aria-label="Variant">${ex.variants
-        .map((v) => `<button data-action="variant" data-ex="${ex.id}" data-v="${v.id}" class="${v.id === ex.variantId ? 'is-on' : ''}">${esc(v.label)}</button>`)
-        .join('')}</div>`
-    : '';
+  const next = nextOpen({ ...s, done: s.done.map((d, k) => d || k === i) }, i);
+  const finishing = next === null;
+  const nextName = finishing ? null : w.exercises[next].name;
 
   app.innerHTML = `
-    <div class="screen workout ${s.rest ? 'is-resting' : ''}">
-      <header class="topbar">
-        <div class="topbar-row">
-          <button class="icon-btn" data-action="end" aria-label="End workout">${icon.close}</button>
-          <div class="topbar-mid">
-            <span class="topbar-title">${esc(w.name)}</span>
-            <span class="topbar-sub"><span id="elapsed">${fmtClock((Date.now() - s.startedAt) / 1000)}</span> · ${t.done}/${t.total} sets</span>
-          </div>
-          <button class="icon-btn ${state.settings.voice ? '' : 'is-off'}" data-action="voice-toggle" aria-pressed="${state.settings.voice}" aria-label="Voice coach">${state.settings.voice ? icon.voiceOn : icon.voiceOff}</button>
-          <button class="icon-btn" data-action="overview" aria-label="All exercises">${icon.list}</button>
-        </div>
-        <div class="progress" aria-label="Workout progress">${progressBar(w, s)}</div>
+    <div class="screen workout">
+      <header class="bar">
+        <button class="icon-btn" data-action="end" aria-label="End workout">${icon.close}</button>
+        <div class="bar-mid"><span class="count"><b>${pad2(i + 1)}</b> / ${pad2(n)}</span></div>
+        <button class="icon-btn" data-action="overview" aria-label="All exercises">${icon.list}</button>
       </header>
+      <div class="ticks" aria-label="${doneCount(s)} of ${n} exercises done">${progress(w, s)}</div>
 
       <main class="ex">
         <div class="ex-head">
-          <div class="eyebrow">
-            <span class="eyebrow-main">${ss ? `<span class="ss-badge">${ss}</span>` : ''}${i + 1} of ${n}</span>
-            <span class="eyebrow-next">${nextName ? `Then ${esc(nextName)}` : 'Last exercise'}</span>
-          </div>
           <h1 class="ex-name">${esc(ex.name)}</h1>
-          <div class="ex-meta">
-            <span class="ex-dose">${ex.sets} × ${esc(ex.reps)}</span>
-            ${ex.repsNote ? `<span class="ex-note">${esc(ex.repsNote)}</span>` : ''}
-          </div>
+          <p class="ex-dose"><b>${esc(doseText(ex))}</b>${ex.repsNote ? `<span>${esc(ex.repsNote)}</span>` : ''}</p>
+          ${supersetLine(w, i)}
         </div>
-
-        <div class="stage">
-          <div class="stage-canvas" id="stage-canvas"></div>
-          <div class="stage-top">
-            ${ex.confirm ? `<button class="flag" data-action="info">${icon.flag}<span>Confirm with coach</span></button>` : '<span></span>'}
-            ${variantSwitch}
-          </div>
-          ${state.hintSeen ? '' : `<div class="stage-hint" id="stage-hint">${icon.rotate}<span>Drag to rotate</span></div>`}
-          <div class="stage-bottom">
-            <button class="info-pill" data-action="info">
-              <span class="legend-key key-primary"></span>
-              <span class="info-pill-text">${esc(ex.primary.map(muscleName).join(', '))}</span>
-              <span class="info-pill-more">Form tips</span>
-            </button>
-            <button class="icon-btn stage-reset" data-action="reset-view" aria-label="Reset view">${icon.reset}</button>
-          </div>
-        </div>
+        ${stageHtml(ex)}
+        <div class="notes">${techniqueNotes(ex)}</div>
       </main>
 
       <footer class="dock">
-        <button class="dock-grab" data-action="load" aria-label="Weight and reps (or swipe up)"><span></span></button>
-        ${restSheet(w, s)}
-        <div class="sets" style="--n:${ex.sets}">${setButtons(ex, i, s)}</div>
-        <nav class="navrow">
-          <button class="nav-btn" data-action="prev" ${i === 0 ? 'disabled' : ''} aria-label="Previous exercise">${icon.prev}<span>Prev</span></button>
-          <button class="nav-btn" data-action="skip" aria-label="Skip exercise">${icon.skip}<span>Skip</span></button>
-          <button class="nav-btn" data-action="next" ${i === n - 1 ? 'disabled' : ''} aria-label="Next exercise"><span>Next</span>${icon.next}</button>
-        </nav>
+        <button class="dock-back" data-action="prev" ${i === 0 ? 'disabled' : ''} aria-label="Previous exercise">${icon.prev}</button>
+        <button class="dock-go" data-action="done-ex">
+          <span class="dock-go-main">${finishing ? 'Finish workout' : s.done[i] ? 'Next' : 'Done'}</span>
+          ${nextName ? `<span class="dock-go-sub">Next: ${esc(nextName)}</span>` : ''}
+          ${icon.next}
+        </button>
       </footer>
       ${state.toast ? `<div class="toast" role="status">${esc(state.toast)}</div>` : ''}
     </div>`;
 
-  const viewer = getViewer();
-  viewer.mount(document.getElementById('stage-canvas'));
-  const key = `${w.id}:${i}:${ex.variantId ?? ''}:${ex.animation}`;
-  if (key !== shownKey) {
-    viewer.show(ex);
-    shownKey = key;
-  }
-  viewer.start();
-  bindDockSwipe(app.querySelector('.dock'));
-}
-
-// Swipe up on the sets panel pulls up the weight & reps sheet.
-let suppressTapUntil = 0;
-function bindDockSwipe(dock) {
-  let start = null;
-  dock.addEventListener(
-    'touchstart',
-    (e) => {
-      const t = e.touches[0];
-      start = { x: t.clientX, y: t.clientY };
-    },
-    { passive: true },
-  );
-  dock.addEventListener(
-    'touchmove',
-    (e) => {
-      if (!start) return;
-      const t = e.touches[0];
-      const dy = t.clientY - start.y;
-      const vertical = Math.abs(dy) > Math.abs(t.clientX - start.x);
-      // Keep iOS from scrolling the page underneath (that shifted the header off-screen).
-      if (vertical && e.cancelable) e.preventDefault();
-      if (dy < -36 && Math.abs(dy) > Math.abs(t.clientX - start.x) * 1.5) {
-        start = null;
-        suppressTapUntil = Date.now() + 500; // the finger lifting shouldn't tick a set
-        loadSheet();
-      }
-    },
-    { passive: false },
-  );
-  dock.addEventListener('touchend', () => (start = null), { passive: true });
+  mountStage(ex);
 }
 
 export function leaveWorkout() {
-  shownKey = null;
+  forgetStage();
 }
 
 // ---------- Flow ----------
 
-export function startWorkout(workoutId) {
-  const w = workoutById(workoutId);
-  if (!w?.exercises.length) return;
-  state.session = newSession(w);
-  state.session.log = w.exercises.map((e) => Array(e.sets).fill(null));
-  state.session.draft = {};
+function begin(session) {
+  state.session = session;
   persistSession();
   state.screen = 'workout';
   keepAwake(true);
   render();
-  announceExercise(0, true);
+  say('start', currentWorkout().exercises[0]);
+}
+
+export const startWorkout = (workoutId) => {
+  const w = workoutById(workoutId);
+  if (w?.exercises.length) begin(newSession(w));
+};
+
+// A one-off workout from library picks; it isn't saved as a workout.
+export const startCustom = (workout) => begin(newSession(workout, true));
+
+function go(i, announce = true) {
+  state.session.exIndex = i;
+  persistSession();
+  render();
+  if (announce) say('exercise', currentWorkout().exercises[i]);
+}
+
+function doneExercise() {
+  const s = state.session;
+  haptic();
+  s.done[s.exIndex] = true;
+  const next = nextOpen(s, s.exIndex);
+  if (next === null) return finishWorkout();
+  go(next);
 }
 
 export function finishWorkout() {
   const w = currentWorkout();
   const s = state.session;
-  s.finishedAt = Date.now();
-  s.rest = null;
-  const record = toRecord(w, s);
-  // Personal bests: heavier than anything logged before this session.
-  record.prs = record.exercises
-    .map((e) => ({ id: e.id, name: e.name, w: Math.max(...e.sets.map((x) => x.w || 0)), prev: bestBefore(e.id, s.startedAt) }))
-    .filter((p) => p.w > 0 && p.prev > 0 && p.w > p.prev);
-  if (record.exercises.length) addRecord(record);
-  state.summary = record;
+  const done = w.exercises.filter((_, i) => s.done[i]);
+  state.summary = { workoutName: w.name, startedAt: s.startedAt, finishedAt: Date.now(), exercises: done, total: w.exercises.length };
+  if (!s.workout) {
+    state.lastDone[w.id] = s.startedAt;
+    save('lastDone', state.lastDone);
+  }
   state.session = null;
   persistSession();
   keepAwake(false);
@@ -323,21 +152,18 @@ export function finishWorkout() {
   render();
 }
 
-// Ending early: save what was logged, or throw the session away (e.g. a demo).
 function endSheet() {
-  const t = totals(state.session);
-  const logged = t.done > 0;
+  const s = state.session;
+  const d = doneCount(s);
   openSheet(`
     <div class="sheet-head"><h2>End workout?</h2></div>
     <p class="sheet-text">${
-      logged
-        ? `${t.done} of ${t.total} sets done. Save them to your history, or discard this session if it wasn’t a real workout.`
-        : 'No sets logged yet, so there’s nothing to save.'
+      d ? `${d} of ${s.done.length} exercises done, ${fmtDuration(Date.now() - s.startedAt)} in.` : 'Nothing marked done yet.'
     }</p>
-    <div class="end-actions">
-      ${logged ? `<button class="btn btn-primary btn-block" data-action="finish">Save workout</button>` : ''}
-      <button class="btn btn-danger-ghost btn-block" data-action="discard-workout">${icon.trash}<span>Discard, don’t save</span></button>
-      <button class="btn btn-ghost btn-block" data-action="close-sheet">Keep going</button>
+    <div class="sheet-stack">
+      ${d ? `<button class="btn btn-primary btn-block" data-action="finish">Finish</button>` : ''}
+      <button class="btn btn-ghost btn-block" data-action="discard-workout">${d ? 'Discard' : 'End without saving'}</button>
+      <button class="btn btn-text btn-block" data-action="close-sheet">Keep going</button>
     </div>`);
 }
 
@@ -349,170 +175,6 @@ function discardWorkout() {
   closeSheet();
   state.screen = 'home';
   render();
-  showToast('Workout discarded, nothing saved');
-}
-
-function go(i, { announce = true } = {}) {
-  const s = state.session;
-  s.exIndex = i;
-  s.rest = null;
-  persistSession();
-  render();
-  if (announce) announceExercise(i);
-}
-
-function toggleSet(i, j) {
-  if (Date.now() < suppressTapUntil) return;
-  const w = currentWorkout();
-  const s = state.session;
-  if (s.done[i][j]) return setSheet(i, j);
-  haptic();
-  s.done[i][j] = true;
-  s.log[i][j] = { ...draftFor(i) };
-  const { next, rest } = afterSet(w, s, i);
-  if (next === null) return finishWorkout();
-  const changed = next !== i;
-  s.exIndex = next;
-  const nx = w.exercises[next];
-  const setNo = Math.min(doneCount(s, next) + 1, nx.sets);
-  if (rest) {
-    const dur = restFor(w.exercises[i]);
-    s.rest = { forEx: i, startedAt: Date.now(), duration: dur, endsAt: Date.now() + dur * 1000 };
-    say('rest', nx, setNo, changed);
-  } else {
-    s.rest = null;
-    say('now', nx, setNo);
-  }
-  persistSession();
-  render();
-}
-
-function setSheet(i, j) {
-  const ex = currentWorkout().exercises[i];
-  const x = state.session.log[i][j] ?? { ...draftFor(i) };
-  openSheet(`
-    ${sheetHead(`Set ${j + 1}`)}
-    <p class="sheet-text">${esc(ex.name)}</p>
-    <div class="logger ${ex.bodyweight ? 'is-single' : ''} in-sheet">
-      ${
-        ex.bodyweight
-          ? ''
-          : `<div class="logf"><label class="logf-val"><input id="edit-w" inputmode="decimal" value="${fmtKg(x.w)}" aria-label="Weight in kg"><span>kg</span></label></div>`
-      }
-      <div class="logf"><label class="logf-val"><input id="edit-r" inputmode="numeric" value="${x.r}" aria-label="Reps"><span>reps</span></label></div>
-    </div>
-    <div class="sheet-actions">
-      <button class="btn btn-ghost" data-action="set-undo" data-i="${i}" data-j="${j}">Mark not done</button>
-      <button class="btn btn-primary" data-action="set-save" data-i="${i}" data-j="${j}">Save</button>
-    </div>`);
-}
-
-const num = (v, fallback) => {
-  const n = parseFloat(String(v).replace(',', '.'));
-  return Number.isFinite(n) && n >= 0 ? n : fallback;
-};
-
-function adjustRest(delta) {
-  const w = currentWorkout();
-  const r = state.session.rest;
-  if (!r) return;
-  const ex = w.exercises[r.forEx];
-  state.restOverrides[ex.id] = Math.max(15, restFor(ex) + delta);
-  save('restOverrides', state.restOverrides);
-  r.endsAt = Math.max(Date.now() + 1000, r.endsAt + delta * 1000);
-  r.duration = Math.max(15, r.duration + delta);
-  persistSession();
-  render();
-  showToast(`${ex.name}: ${restFor(ex)}s rest from now on`);
-}
-
-function endRest(completed, lateSec = 0) {
-  const s = state.session;
-  if (!s?.rest) return;
-  s.rest = null;
-  persistSession();
-  render();
-  if (!completed) return;
-  const ex = currentWorkout().exercises[s.exIndex];
-  const setNo = Math.min(doneCount(s, s.exIndex) + 1, ex.sets);
-  if (lateSec > 5) {
-    // Came back to the app after rest ended in the background.
-    showToast(`Rest ended ${fmtClock(lateSec)} ago`);
-    return;
-  }
-  if (state.settings.sound) chime();
-  if (state.settings.vibrate) buzz();
-  flash('Go', `${ex.name} · set ${setNo}`);
-  setTimeout(() => say('go', ex, setNo), 450);
-}
-
-// ---------- History sheet ----------
-
-function historySheet(exId) {
-  const w = currentWorkout();
-  const ex = w.exercises.find((e) => e.id === exId);
-  const pts = seriesFor(exId);
-  const bw = ex.bodyweight || pts.every((p) => !p.w);
-  const chart = pts.length
-    ? progressChart(pts, bw ? { unit: 'reps', value: (p) => p.r, tipText: (p) => `${p.r} reps` } : {})
-    : '';
-  const rows = pts
-    .slice()
-    .reverse()
-    .map(
-      (p) => `<li class="hist-row">
-        <span class="hist-date">${fmtDate(p.at, true)}</span>
-        <span class="hist-sets">${p.sets.map((x) => setLabel(ex, x)).join(' · ')}</span>
-        ${bw ? '' : `<span class="hist-vol">${Math.round(p.volume).toLocaleString('en-US')} kg</span>`}
-      </li>`,
-    )
-    .join('');
-  openSheet(
-    `${sheetHead(esc(ex.name))}
-    ${
-      pts.length
-        ? `<p class="sheet-text">${bw ? 'Best reps per session' : 'Top set weight per session'}. Tap a point for details.</p>${chart}
-           <h3 class="sheet-sub">Sessions</h3><ol class="hist">${rows}</ol>`
-        : `<div class="empty"><div class="empty-title">No history yet</div><p>Log weight and reps on each set. After this workout, your progress shows up here.</p></div>`
-    }`,
-    { tall: true },
-  );
-}
-
-// ---------- Weight & reps ----------
-
-function loadSheet() {
-  const w = currentWorkout();
-  const i = state.session.exIndex;
-  const ex = w.exercises[i];
-  const last = lastTimeText(ex);
-  const left = ex.sets - doneCount(state.session, i);
-  openSheet(`
-    ${sheetHead(ex.bodyweight ? 'Reps' : 'Weight & reps')}
-    <p class="sheet-text">${esc(ex.name)} · applies to your next ${left === 1 ? 'set' : `${left} sets`}</p>
-    <div class="in-sheet-wrap">${logger(ex, i).replace('class="logger', 'class="logger in-sheet')}</div>
-    ${last ? `<p class="load-last">${icon.chart}<span>Last time: <b>${esc(last.full)}</b></span></p>` : ''}
-    ${ex.weight ? `<p class="load-last"><span>Coach’s target: <b>${fmtKg(ex.weight)} kg</b></span></p>` : ''}
-    <button class="btn btn-primary btn-block sheet-gap" data-action="load-done">Done</button>`);
-}
-
-// ---------- Muscles & form ----------
-
-function infoSheet() {
-  const w = currentWorkout();
-  const ex = resolve(w.exercises[state.session.exIndex]);
-  const chips = (ids, cls) => ids.map((m) => `<span class="mchip ${cls}">${esc(muscleName(m))}</span>`).join('');
-  const last = lastTimeText(ex);
-  openSheet(`
-    ${sheetHead(esc(ex.name))}
-    ${ex.confirm ? `<p class="confirm-note">${icon.flag}<span><b>Confirm with coach.</b> ${esc(ex.confirm)}</span></p>` : ''}
-    ${ex.cues?.length ? `<h3 class="sheet-sub">Form</h3><ol class="cues">${ex.cues.map((c) => `<li>${esc(c)}</li>`).join('')}</ol>` : ''}
-    <h3 class="sheet-sub">Muscles</h3>
-    <div class="legend">
-      <div class="legend-row"><span class="legend-key key-primary"></span><span class="legend-label">Primary</span>${chips(ex.primary, 'is-primary')}</div>
-      ${ex.secondary?.length ? `<div class="legend-row"><span class="legend-key key-secondary"></span><span class="legend-label">Secondary</span>${chips(ex.secondary, 'is-secondary')}</div>` : ''}
-    </div>
-    <button class="btn btn-ghost btn-block sheet-gap" data-action="history" data-ex="${ex.id}">${icon.chart}<span>${last ? `History · last time ${esc(last.full)}` : 'History'}</span></button>`);
 }
 
 // ---------- Overview ----------
@@ -520,75 +182,31 @@ function infoSheet() {
 function overviewSheet() {
   const w = currentWorkout();
   const s = state.session;
+  const row = (i) => {
+    const ex = w.exercises[i];
+    return `<button class="row ${s.done[i] ? 'is-done' : ''} ${i === s.exIndex ? 'is-cur' : ''}" data-action="jump" data-i="${i}">
+      <span class="row-num">${s.done[i] ? icon.check : pad2(i + 1)}</span>
+      <span class="row-body"><span class="row-title">${esc(ex.name)}</span><span class="row-sub">${esc(doseText(ex))}${ex.repsNote ? ` ${esc(ex.repsNote)}` : ''}</span></span>
+    </button>`;
+  };
   const items = blocks(w)
-    .map((b) => {
-      const rows = b
-        .map((i) => {
-          const ex = w.exercises[i];
-          const d = doneCount(s, i);
-          const status = isComplete(s, i) ? 'is-done' : s.skipped[i] ? 'is-skipped' : d ? 'is-partial' : '';
-          const label = isComplete(s, i) ? 'Done' : s.skipped[i] ? 'Skipped' : `${d}/${ex.sets}`;
-          return `<button class="ov-row ${status} ${i === s.exIndex ? 'is-cur' : ''}" data-action="jump" data-i="${i}">
-            <span class="ov-idx">${isComplete(s, i) ? icon.check : i + 1}</span>
-            <span class="ov-body"><span class="ov-name">${esc(ex.name)}</span><span class="ov-meta">${ex.sets} × ${esc(ex.reps)}${ex.weight ? ` · ${fmtKg(ex.weight)} kg` : ''}</span></span>
-            <span class="ov-status">${label}</span>
-          </button>`;
-        })
-        .join('');
-      return b.length > 1 ? `<div class="ov-group"><span class="ov-group-label">Superset</span>${rows}</div>` : rows;
-    })
+    .map((b) => (b.length > 1 ? `<div class="row-group"><span class="row-group-label">Superset</span>${b.map(row).join('')}</div>` : row(b[0])))
     .join('');
-  openSheet(`${sheetHead('Exercises')}<div class="ov-list">${items}</div>
-    <button class="btn btn-ink btn-block" data-action="end">Finish workout</button>`);
+  openSheet(
+    `${sheetHead(esc(w.name))}
+    <div class="rows">${items}</div>
+    <label class="switch-row"><span>Voice coach<small>Announces each exercise</small></span>
+      <input type="checkbox" class="switch" data-setting="voice" ${state.settings.voice ? 'checked' : ''}></label>
+    <button class="btn btn-ghost btn-block" data-action="end">End workout</button>`,
+    { tall: true },
+  );
 }
 
 // ---------- Actions ----------
 
 export const workoutActions = {
-  set: (el) => toggleSet(+el.dataset.i, +el.dataset.j),
-  'set-undo': (el) => {
-    const s = state.session;
-    s.done[+el.dataset.i][+el.dataset.j] = false;
-    s.log[+el.dataset.i][+el.dataset.j] = null;
-    persistSession();
-    closeSheet();
-    render();
-  },
-  'set-save': (el) => {
-    const i = +el.dataset.i;
-    const j = +el.dataset.j;
-    const prev = state.session.log[i][j] ?? draftFor(i);
-    state.session.log[i][j] = {
-      w: num(document.getElementById('edit-w')?.value ?? 0, prev.w),
-      r: Math.round(num(document.getElementById('edit-r')?.value, prev.r)),
-    };
-    persistSession();
-    closeSheet();
-    render();
-  },
-  'log-step': (el) => {
-    const d = draftFor(state.session.exIndex);
-    const f = el.dataset.f;
-    d[f] = Math.max(0, Math.round((d[f] + +el.dataset.d) * 10) / 10);
-    const input = document.querySelector(`[data-log="${f}"]`);
-    if (input) input.value = f === 'w' ? fmtKg(d.w) : d.r;
-    haptic();
-    persistSession();
-    render();
-  },
+  'done-ex': doneExercise,
   prev: () => go(Math.max(0, state.session.exIndex - 1)),
-  next: () => go(Math.min(currentWorkout().exercises.length - 1, state.session.exIndex + 1)),
-  skip: () => {
-    const s = state.session;
-    const w = currentWorkout();
-    if (!isComplete(s, s.exIndex)) s.skipped[s.exIndex] = true;
-    const open = (k) => !isComplete(s, k) && !s.skipped[k];
-    const n = w.exercises.findIndex((e, k) => k > s.exIndex && open(k));
-    const back = w.exercises.findIndex((e, k) => open(k));
-    if (n >= 0) go(n);
-    else if (back >= 0) go(back);
-    else endSheet();
-  },
   overview: overviewSheet,
   jump: (el) => {
     closeSheet();
@@ -597,68 +215,17 @@ export const workoutActions = {
   end: endSheet,
   finish: finishWorkout,
   'discard-workout': discardWorkout,
-  'rest-plus': () => adjustRest(15),
-  'rest-minus': () => adjustRest(-15),
-  'rest-skip': () => {
-    stopCoach();
-    endRest(false);
-  },
   variant: (el) => {
     state.variants[el.dataset.ex] = el.dataset.v;
     save('variants', state.variants);
     render();
   },
   'reset-view': () => getViewer().resetView(),
-  info: infoSheet,
-  load: loadSheet,
-  'load-done': () => {
-    closeSheet();
-    render();
-  },
-  history: (el) => historySheet(el.dataset.ex),
-  'voice-toggle': () => {
-    state.settings.voice = !state.settings.voice;
-    saveSettings();
-    if (!state.settings.voice) stopCoach();
-    else say('voiceOn');
-    render();
-  },
-  'dismiss-flash': removeFlash,
 };
 
-// Weight/reps typed directly into the logger.
-export function onLogInput(el) {
-  if (!state.session) return;
-  const d = draftFor(state.session.exIndex);
-  const f = el.dataset.log;
-  d[f] = f === 'r' ? Math.round(num(el.value, d.r)) : num(el.value, d.w);
-  persistSession();
-  render();
-}
-
-// ---------- Clock (every 200 ms) ----------
-
-let lastSpoken = null;
-export function clockTick() {
-  const s = state.session;
-  if (state.screen !== 'workout' || !s) return;
-  const el = document.getElementById('elapsed');
-  if (el) el.textContent = fmtClock((Date.now() - s.startedAt) / 1000);
-  if (!s.rest) return;
-  const left = (s.rest.endsAt - Date.now()) / 1000;
-  if (left <= 0) return endRest(true, -left);
-  const t = document.getElementById('rest-time');
-  if (t) t.textContent = fmtClock(left);
-  const f = document.getElementById('rest-fill');
-  if (f) f.style.width = `${Math.min(1, left / s.rest.duration) * 100}%`;
-
-  const sec = Math.ceil(left);
-  if (sec === lastSpoken || document.visibilityState !== 'visible') return;
-  lastSpoken = sec;
-  if (state.settings.voice) {
-    if (sec === 10 && s.rest.duration > 20) say('tenSeconds');
-    else if (sec <= 3) say('count', sec);
-  } else if (sec <= 3 && state.settings.sound) {
-    tick();
-  }
+// Voice toggled from a switch (overview sheet or settings).
+export function onVoiceSetting() {
+  saveSettings();
+  if (!state.settings.voice) stopCoach();
+  else say('voiceOn');
 }

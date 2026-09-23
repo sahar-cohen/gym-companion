@@ -4,16 +4,17 @@ import '@fontsource/barlow-semi-condensed/700.css';
 import './styles.css';
 import { registerSW } from 'virtual:pwa-register';
 
-import { state, setRender, render, validSession, saveSettings } from './app/state.js';
+import { state, setRender, render, validSession, persistSession } from './app/state.js';
 import { existingViewer } from './app/viewer.js';
 import { keepAwake } from './lib/device.js';
 import { closeSheet, resetScroll, setBaseTheme } from './ui/sheets.js';
 import { renderHome, homeActions } from './screens/home.js';
-import { renderWorkout, leaveWorkout, workoutActions, onLogInput, clockTick, showToast } from './screens/workout.js';
+import { renderPlan, planActions } from './screens/plan.js';
+import { renderExercise, libraryActions } from './screens/library.js';
+import { renderWorkout, leaveWorkout, workoutActions, onVoiceSetting } from './screens/workout.js';
 import { renderSummary, summaryActions } from './screens/summary.js';
 import { renderEditor, editorActions, onEditorInput } from './screens/editor.js';
 import { settingsActions, setApplyTheme, importData } from './screens/settings.js';
-import { remove } from './lib/storage.js';
 
 registerSW({ immediate: true });
 
@@ -25,7 +26,7 @@ const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
 function applyTheme() {
   const t = state.settings.theme === 'system' ? (darkQuery.matches ? 'dark' : 'light') : state.settings.theme;
   document.documentElement.dataset.theme = t;
-  setBaseTheme(t === 'dark' ? '#0f1012' : '#f3f2ee');
+  setBaseTheme(t === 'dark' ? '#0d0e10' : '#f4f3ef');
   existingViewer()?.setTheme(t);
   existingViewer()?.renderOnce();
 }
@@ -34,6 +35,8 @@ setApplyTheme(applyTheme);
 
 // ---------- Router ----------
 
+const SCREENS = { home: renderHome, plan: renderPlan, exercise: renderExercise, workout: renderWorkout, done: renderSummary, editor: renderEditor };
+
 let lastScreen = null;
 setRender(() => {
   existingViewer()?.stop();
@@ -41,19 +44,18 @@ setRender(() => {
   if (state.screen === 'workout' && !state.session) state.screen = 'home';
   if (state.screen === 'done' && !state.summary) state.screen = 'home';
   if (state.screen === 'editor' && !state.editor) state.screen = 'home';
+  if (state.screen === 'exercise' && !state.detail) state.screen = 'home';
   lastScreen = state.screen;
   document.body.dataset.screen = state.screen;
-
-  if (state.screen === 'workout') renderWorkout(app);
-  else if (state.screen === 'done') renderSummary(app);
-  else if (state.screen === 'editor') renderEditor(app);
-  else renderHome(app);
+  (SCREENS[state.screen] ?? renderHome)(app);
 });
 
 // ---------- Events ----------
 
 const actions = {
   ...homeActions,
+  ...planActions,
+  ...libraryActions,
   ...workoutActions,
   ...summaryActions,
   ...editorActions,
@@ -71,19 +73,14 @@ document.addEventListener('change', (e) => {
   const t = e.target;
   if (t.dataset?.setting) {
     state.settings[t.dataset.setting] = t.checked;
-    saveSettings();
-    if (state.screen === 'workout') render();
-  } else if (t.dataset?.log) {
-    onLogInput(t);
+    if (t.dataset.setting === 'voice') onVoiceSetting();
   } else if (t.hasAttribute?.('data-import') && t.files?.[0]) {
     importData(t.files[0]);
   }
 });
 
 document.addEventListener('input', (e) => {
-  const t = e.target;
-  if (t.dataset?.log) onLogInput(t);
-  else if (t.dataset?.edit) onEditorInput(t);
+  if (e.target.dataset?.edit) onEditorInput(e.target);
 });
 
 // When the iOS keyboard closes it can leave the page shifted up.
@@ -91,31 +88,19 @@ document.addEventListener('focusout', (e) => {
   if (e.target.matches?.('input, textarea')) setTimeout(resetScroll, 60);
 });
 
-// Enter / "done" on the number pad closes the keyboard.
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && e.target.matches?.('.logf-val input')) e.target.blur();
-});
-
-setInterval(clockTick, 200);
-
 // ---------- Boot ----------
 
-async function boot() {
+function boot() {
   applyTheme();
-  if (!validSession(state.session)) state.session = null;
+  if (!validSession(state.session)) {
+    state.session = null;
+    persistSession();
+  }
   if (state.session && Date.now() - state.session.startedAt < 4 * 3600 * 1000) {
     state.screen = 'workout';
     keepAwake(true);
   }
   render();
-
-  // Spotify was removed; drop any tokens a previous version stored.
-  remove('sp.tokens');
-  remove('sp.pkce');
-  if ('spotifyClientId' in state.settings) {
-    delete state.settings.spotifyClientId;
-    saveSettings();
-  }
 }
 
 boot();
