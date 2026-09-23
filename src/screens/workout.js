@@ -103,11 +103,14 @@ function setButtons(ex, i, s) {
       const cls = d ? 'is-done' : j === nextSet ? 'is-next' : '';
       return `<button class="set ${cls}" data-action="set" data-i="${i}" data-j="${j}" aria-pressed="${d}" aria-label="Set ${j + 1}${d ? ', done' : ''}">
         <span class="set-num">${d ? icon.check : j + 1}</span>
-        <span class="set-reps">${d && logged ? setLabel(ex, logged) : `${esc(ex.reps)}${ex.repsNote ? ' / side' : ''}`}</span>
+        <span class="set-reps">${loadLabel(ex, d && logged ? logged : draftFor(i))}</span>
       </button>`;
     })
     .join('');
 }
+
+// "10 kg × 12", or "12 reps" when there is no weight.
+const loadLabel = (ex, x) => (ex.bodyweight || !x.w ? `${x.r} reps` : `${fmtKg(x.w)} kg × ${x.r}`);
 
 function logger(ex, i) {
   const d = draftFor(i);
@@ -158,7 +161,6 @@ export function renderWorkout(app) {
   const ss = supersetLabel(w, i);
   const t = totals(s);
   const n = w.exercises.length;
-  const last = lastTimeText(ex);
   const nextName = upNext(w, s);
 
   const variantSwitch = ex.variants?.length
@@ -193,8 +195,9 @@ export function renderWorkout(app) {
           <div class="ex-meta">
             <span class="ex-dose">${ex.sets} × ${esc(ex.reps)}</span>
             ${ex.repsNote ? `<span class="ex-note">${esc(ex.repsNote)}</span>` : ''}
-            ${ex.weight ? `<span class="wchip">${fmtKg(ex.weight)} kg</span>` : ''}
-            ${last ? `<button class="lasttime" data-action="history" data-ex="${ex.id}" aria-label="History. Last time ${esc(last.full)}">${icon.chart}<span>${esc(last.short)}</span></button>` : ''}
+            <button class="loadchip ${!ex.bodyweight && !draftFor(i).w ? 'is-empty' : ''}" data-action="load" aria-label="Change weight and reps">
+              <span>${!ex.bodyweight && !draftFor(i).w ? 'Set weight' : loadLabel(ex, draftFor(i))}</span>${icon.edit}
+            </button>
           </div>
         </div>
 
@@ -218,7 +221,6 @@ export function renderWorkout(app) {
 
       <footer class="dock">
         ${restSheet(w, s)}
-        ${logger(ex, i)}
         <div class="sets" style="--n:${ex.sets}">${setButtons(ex, i, s)}</div>
         <nav class="navrow">
           <button class="nav-btn" data-action="prev" ${i === 0 ? 'disabled' : ''} aria-label="Previous exercise">${icon.prev}<span>Prev</span></button>
@@ -409,6 +411,23 @@ function historySheet(exId) {
   );
 }
 
+// ---------- Weight & reps ----------
+
+function loadSheet() {
+  const w = currentWorkout();
+  const i = state.session.exIndex;
+  const ex = w.exercises[i];
+  const last = lastTimeText(ex);
+  const left = ex.sets - doneCount(state.session, i);
+  openSheet(`
+    ${sheetHead(ex.bodyweight ? 'Reps' : 'Weight & reps')}
+    <p class="sheet-text">${esc(ex.name)} · applies to your next ${left === 1 ? 'set' : `${left} sets`}</p>
+    <div class="in-sheet-wrap">${logger(ex, i).replace('class="logger', 'class="logger in-sheet')}</div>
+    ${last ? `<p class="load-last">${icon.chart}<span>Last time: <b>${esc(last.full)}</b></span></p>` : ''}
+    ${ex.weight ? `<p class="load-last"><span>Coach’s target: <b>${fmtKg(ex.weight)} kg</b></span></p>` : ''}
+    <button class="btn btn-primary btn-block sheet-gap" data-action="load-done">Done</button>`);
+}
+
 // ---------- Muscles & form ----------
 
 function infoSheet() {
@@ -487,6 +506,7 @@ export const workoutActions = {
     if (input) input.value = f === 'w' ? fmtKg(d.w) : d.r;
     haptic();
     persistSession();
+    render();
   },
   prev: () => go(Math.max(0, state.session.exIndex - 1)),
   next: () => go(Math.min(currentWorkout().exercises.length - 1, state.session.exIndex + 1)),
@@ -521,6 +541,11 @@ export const workoutActions = {
   },
   'reset-view': () => getViewer().resetView(),
   info: infoSheet,
+  load: loadSheet,
+  'load-done': () => {
+    closeSheet();
+    render();
+  },
   history: (el) => historySheet(el.dataset.ex),
   'voice-toggle': () => {
     state.settings.voice = !state.settings.voice;
@@ -539,6 +564,7 @@ export function onLogInput(el) {
   const f = el.dataset.log;
   d[f] = f === 'r' ? Math.round(num(el.value, d.r)) : num(el.value, d.w);
   persistSession();
+  render();
 }
 
 // ---------- Clock (every 200 ms) ----------
