@@ -2367,28 +2367,15 @@ body[data-screen='exercise'] #app {
   font-size: 17px;
   line-height: 1.35;
 }
+.sheet-panel .avoid {
+  margin-top: 12px;
+}
 .avoid li::before {
   content: '×';
   width: 14px;
   flex: none;
   font-weight: 700;
   color: var(--accent);
-}
-
-/* Form / Avoid pills on the stage */
-.stage-top .tip-row {
-  display: flex;
-  gap: 8px;
-}
-.tip-pill {
-  padding: 0 18px;
-  font-family: var(--display);
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-.stage-top {
-  align-items: center;
 }
 
 .done-row {
