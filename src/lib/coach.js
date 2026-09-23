@@ -1,5 +1,5 @@
 // Voice coach. Plays pre-recorded lines (public/voice/*.mp3, one natural male
-// voice) back to back through Web Audio, so they mix over Spotify like the
+// voice) back to back through Web Audio, so they mix over your music like the
 // chime does. Anything without a recording falls back to the system voice.
 import { CLIP_TEXT, INTRO_DOSE } from '../data/voice-clips.js';
 import { audioContext, audioReady } from './device.js';

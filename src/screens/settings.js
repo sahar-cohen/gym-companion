@@ -3,38 +3,11 @@ import { esc } from '../app/util.js';
 import { load, save } from '../lib/storage.js';
 import { canVibrate } from '../lib/device.js';
 import { voiceSupported } from '../lib/voice.js';
-import * as sp from '../lib/spotify.js';
 import { openSheet, sheetHead } from '../ui/sheets.js';
 import { showToast } from './workout.js';
 
 let applyThemeFn = () => {};
 export const setApplyTheme = (fn) => (applyThemeFn = fn);
-
-const clientId = () => sp.envClientId || state.settings.spotifyClientId;
-
-function spotifySection() {
-  const S = state.spotify;
-  if (S.connected) {
-    return `<div class="srow">
-      <span>Spotify<small>Connected${S.user ? ` as ${esc(S.user)}` : ''}${S.premium === false ? ' · Free (now playing only)' : ''}</small></span>
-      <button class="btn btn-ghost btn-sm" data-action="sp-logout">Disconnect</button>
-    </div>`;
-  }
-  const needsId = !sp.envClientId;
-  return `<div class="spotify-box">
-    <div class="srow no-line"><span>Spotify<small>Control music without leaving the app</small></span>
-      <button class="btn btn-primary btn-sm" data-action="sp-login">Connect</button></div>
-    ${
-      needsId
-        ? `<label class="field"><span class="field-label">Client ID <small>one-time setup, see README</small></span>
-            <input class="field-input" data-setting-text="spotifyClientId" value="${esc(state.settings.spotifyClientId)}" placeholder="32-character Client ID" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
-           <p class="field-help">Redirect URI to register: <code>${esc(sp.redirectUri())}</code>${
-             location.hostname === 'localhost' ? '<br>Spotify rejects “localhost”; open the app at 127.0.0.1 instead.' : ''
-           }</p>`
-        : ''
-    }
-  </div>`;
-}
 
 export function settingsSheet() {
   const st = state.settings;
@@ -65,9 +38,6 @@ export function settingsSheet() {
       <span>Per-exercise rest times<small>${overrides ? `${overrides} saved` : 'None saved'}</small></span>
       <button class="btn btn-ghost btn-sm" data-action="clear-overrides" ${overrides ? '' : 'disabled'}>Reset</button>
     </div>
-
-    <h3 class="sheet-sub">Music</h3>
-    ${spotifySection()}
 
     <h3 class="sheet-sub">Your data</h3>
     <div class="srow">
@@ -126,22 +96,7 @@ export const settingsActions = {
     save('restOverrides', {});
     settingsSheet();
   },
-  'sp-login': () => {
-    const id = clientId().trim();
-    if (!/^[0-9a-f]{32}$/i.test(id)) return showToast('Paste your Spotify Client ID first');
-    sp.login(id);
-  },
-  'sp-logout': () => {
-    sp.logout();
-    Object.assign(state.spotify, { connected: false, user: null, playback: null, premium: undefined });
-    settingsSheet();
-  },
   'export-data': exportData,
 };
 
-// Plain text settings (e.g. Spotify Client ID).
-export function onSettingText(el) {
-  state.settings[el.dataset.settingText] = el.value.trim();
-  saveSettings();
-}
 

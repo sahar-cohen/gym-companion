@@ -59,13 +59,7 @@ export function renderHome(app) {
                  <span class="wcard-muscles">${st.muscles.slice(0, 6).map(esc).join(' · ')}</span>`
               : `<span class="wcard-meta">No exercises yet</span>`
           }
-          ${
-            last || w.playlist
-              ? `<span class="wcard-extra">${last ? `Last done ${daysAgo(last.startedAt)}` : ''}${last && w.playlist ? ' · ' : ''}${
-                  w.playlist ? `${icon.music}${esc(w.playlist.name)}` : ''
-                }</span>`
-              : ''
-          }
+          ${last ? `<span class="wcard-extra">Last done ${daysAgo(last.startedAt)}</span>` : ''}
         </span>
       </button>`;
     })

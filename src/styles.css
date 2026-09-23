@@ -1239,7 +1239,7 @@ body[data-screen='workout'] #app {
   color: var(--muted);
 }
 
-/* Workout: last time, logger, player */
+/* Workout: last time, logger */
 .lasttime {
   display: flex;
   align-items: center;
@@ -1332,78 +1332,6 @@ body[data-screen='workout'] #app {
 .logger.in-sheet .logf {
   padding: 0 14px;
   height: 64px;
-}
-
-.player {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 8px;
-  padding: 6px 6px 6px 6px;
-  border-radius: 14px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-.player-art,
-.player-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  flex: none;
-  object-fit: cover;
-}
-.player-icon {
-  display: grid;
-  place-items: center;
-  background: #1db954;
-  color: #fff;
-}
-.player-icon svg {
-  width: 20px;
-  height: 20px;
-}
-.player-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-.player-text b,
-.player-text small {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.player-text b {
-  font-size: 14px;
-}
-.player-text small {
-  font-size: 13px;
-  color: var(--muted);
-}
-.player-btn {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  flex: none;
-}
-.player-btn svg {
-  width: 20px;
-  height: 20px;
-}
-.player-btn.is-main {
-  background: var(--ink);
-  color: var(--bg);
-}
-.player-link {
-  font-weight: 700;
-  font-size: 14px;
-  color: #1a9e48;
-  padding: 10px 12px;
-  text-decoration: none;
 }
 
 .go-flash {
@@ -1765,32 +1693,6 @@ select.field-input {
   height: 30px;
   border-radius: 8px;
 }
-.ed-music {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 8px 8px 14px;
-  border-radius: var(--r-md);
-  background: var(--surface);
-}
-.ed-music > span {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.ed-music svg {
-  width: 18px;
-  height: 18px;
-  color: #1db954;
-  flex: none;
-}
-.ed-music b {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .ed-danger {
   display: flex;
   flex-wrap: wrap;
@@ -1809,38 +1711,6 @@ select.field-input {
 }
 .srow.no-line {
   border-bottom: 0;
-}
-.spotify-box {
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 6px;
-}
-.pl-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.pl-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px;
-  border-radius: 12px;
-  text-align: left;
-}
-.pl-row:active {
-  background: var(--surface-2);
-}
-.pl-row img {
-  border-radius: 6px;
-  object-fit: cover;
-}
-.pl-row span {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.pl-row small {
-  color: var(--muted);
 }
 .form .sheet-actions {
   margin-top: 8px;

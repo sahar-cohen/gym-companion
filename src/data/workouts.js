@@ -11,7 +11,7 @@
 //   variants (optional): [{ id, label, animation, camera }] — first is the default
 //   confirm (optional): note shown as "Confirm with coach"
 //   bodyweight (optional): log reps only
-// Workout fields: id, name, exercises, playlist ({ id, name } | undefined)
+// Workout fields: id, name, exercises
 
 export const WORKOUTS_VERSION = 1;
 

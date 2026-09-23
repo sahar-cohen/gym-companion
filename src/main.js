@@ -7,14 +7,13 @@ import { registerSW } from 'virtual:pwa-register';
 import { state, setRender, render, validSession, saveSettings } from './app/state.js';
 import { existingViewer } from './app/viewer.js';
 import { keepAwake } from './lib/device.js';
-import { handleRedirect } from './lib/spotify.js';
 import { closeSheet, resetScroll, setBaseTheme } from './ui/sheets.js';
-import { playerActions, initSpotify } from './ui/player.js';
 import { renderHome, homeActions } from './screens/home.js';
 import { renderWorkout, leaveWorkout, workoutActions, onLogInput, clockTick, showToast } from './screens/workout.js';
 import { renderSummary, summaryActions } from './screens/summary.js';
 import { renderEditor, editorActions, onEditorInput } from './screens/editor.js';
-import { settingsActions, settingsSheet, setApplyTheme, onSettingText, importData } from './screens/settings.js';
+import { settingsActions, setApplyTheme, importData } from './screens/settings.js';
+import { remove } from './lib/storage.js';
 
 registerSW({ immediate: true });
 
@@ -59,7 +58,6 @@ const actions = {
   ...summaryActions,
   ...editorActions,
   ...settingsActions,
-  ...playerActions(showToast),
   'close-sheet': closeSheet,
 };
 
@@ -77,8 +75,6 @@ document.addEventListener('change', (e) => {
     if (state.screen === 'workout') render();
   } else if (t.dataset?.log) {
     onLogInput(t);
-  } else if (t.dataset?.settingText !== undefined) {
-    onSettingText(t);
   } else if (t.hasAttribute?.('data-import') && t.files?.[0]) {
     importData(t.files[0]);
   }
@@ -88,7 +84,6 @@ document.addEventListener('input', (e) => {
   const t = e.target;
   if (t.dataset?.log) onLogInput(t);
   else if (t.dataset?.edit) onEditorInput(t);
-  else if (t.dataset?.settingText !== undefined) onSettingText(t);
 });
 
 // When the iOS keyboard closes it can leave the page shifted up.
@@ -114,15 +109,13 @@ async function boot() {
   }
   render();
 
-  const result = await handleRedirect();
-  await initSpotify();
-  if (result === 'connected') {
-    showToast(`Spotify connected${state.spotify.user ? ` as ${state.spotify.user}` : ''}`);
-    settingsSheet();
-  } else if (result?.startsWith('error:')) {
-    showToast(`Spotify login failed (${result.slice(6)})`);
+  // Spotify was removed; drop any tokens a previous version stored.
+  remove('sp.tokens');
+  remove('sp.pkce');
+  if ('spotifyClientId' in state.settings) {
+    delete state.settings.spotifyClientId;
+    saveSettings();
   }
-  if (state.spotify.connected && state.screen === 'workout') render();
 }
 
 boot();

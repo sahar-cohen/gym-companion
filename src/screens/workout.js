@@ -10,7 +10,6 @@ import { coach, stop as stopCoach, preload as preloadCoach } from '../lib/coach.
 import { icon } from '../ui/icons.js';
 import { openSheet, closeSheet, confirmSheet, sheetHead, tintStatusBar } from '../ui/sheets.js';
 import { progressChart } from '../ui/chart.js';
-import { playerHTML, startPolling, stopPolling, autoStartPlaylist } from '../ui/player.js';
 
 let shownKey = null;
 
@@ -194,7 +193,6 @@ export function renderWorkout(app) {
           <button class="icon-btn" data-action="overview" aria-label="All exercises">${icon.list}</button>
         </div>
         <div class="progress" aria-label="Workout progress">${progressBar(w, s)}</div>
-        <div id="player-slot">${playerHTML()}</div>
       </header>
 
       <main class="ex">
@@ -249,7 +247,6 @@ export function renderWorkout(app) {
     shownKey = key;
   }
   viewer.start();
-  startPolling();
   bindDockSwipe(app.querySelector('.dock'));
 }
 
@@ -287,7 +284,6 @@ function bindDockSwipe(dock) {
 
 export function leaveWorkout() {
   shownKey = null;
-  stopPolling();
 }
 
 // ---------- Flow ----------
@@ -303,7 +299,6 @@ export function startWorkout(workoutId) {
   keepAwake(true);
   render();
   announceExercise(0, true);
-  autoStartPlaylist(w, showToast);
 }
 
 export function finishWorkout() {

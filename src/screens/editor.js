@@ -6,7 +6,6 @@ import { MUSCLES, muscleName } from '../data/muscles.js';
 import { ANIMATIONS } from '../three/animations.js';
 import { save } from '../lib/storage.js';
 import { blocks } from '../lib/session.js';
-import * as sp from '../lib/spotify.js';
 import { icon } from '../ui/icons.js';
 import { openSheet, closeSheet, confirmSheet, sheetHead } from '../ui/sheets.js';
 import { showToast } from './workout.js';
@@ -75,11 +74,6 @@ export function renderEditor(app) {
     })
     .join('');
 
-  const music = w.playlist
-    ? `<div class="ed-music"><span>${icon.music}<b>${esc(w.playlist.name)}</b></span>
-        <button class="btn btn-ghost btn-sm" data-action="ed-playlist">Change</button>
-        <button class="icon-btn sm" data-action="ed-playlist-clear" aria-label="Remove playlist">${icon.close}</button></div>`
-    : `<button class="btn btn-ghost" data-action="ed-playlist">${icon.music}<span>Choose a Spotify playlist</span></button>`;
 
   app.innerHTML = `
     <div class="screen editor">
@@ -104,10 +98,6 @@ export function renderEditor(app) {
       <h2 class="section-title">Exercises</h2>
       <div class="ov-list">${rows || '<p class="sheet-text">No exercises yet.</p>'}</div>
       <button class="btn btn-primary btn-block" data-action="ed-exercise" data-i="-1" ${lock ? 'disabled' : ''}>${icon.plus}<span>Add exercise</span></button>
-
-      <h2 class="section-title">Music</h2>
-      <p class="field-help">Starts when you begin this workout (Spotify Premium).</p>
-      ${music}
 
       <h2 class="section-title">Manage</h2>
       <div class="ed-danger">
@@ -184,46 +174,6 @@ function exerciseSheet() {
     </form>`,
     { tall: true },
   );
-}
-
-// ---------- Playlists ----------
-
-async function playlistSheet() {
-  const connected = state.spotify.connected;
-  openSheet(
-    `${sheetHead('Workout playlist')}
-    <label class="field"><span class="field-label">Paste a Spotify playlist link</span>
-      <span class="field-inline"><input class="field-input" id="pl-link" placeholder="https://open.spotify.com/playlist/…" autocomplete="off">
-      <button class="btn btn-primary btn-sm" data-action="ed-playlist-link">Use</button></span></label>
-    ${connected ? `<h3 class="sheet-sub">Your playlists</h3><div class="pl-list" id="pl-list"><p class="sheet-text">Loading…</p></div>` : `<p class="field-help">Connect Spotify in Settings to pick from your playlists and control music during workouts.</p>`}`,
-    { tall: true },
-  );
-  if (!connected) return;
-  try {
-    const items = await sp.myPlaylists();
-    const el = document.getElementById('pl-list');
-    if (!el) return;
-    el.innerHTML = items.length
-      ? items
-          .map((p) => {
-            const img = p.images?.at(-1)?.url;
-            return `<button class="pl-row" data-action="ed-playlist-pick" data-id="${p.id}" data-name="${esc(p.name)}">
-              ${img ? `<img src="${esc(img)}" alt="" width="44" height="44">` : `<span class="player-icon">${icon.music}</span>`}
-              <span><b>${esc(p.name)}</b><small>${p.items?.total ?? p.tracks?.total ?? ''} tracks</small></span></button>`;
-          })
-          .join('')
-      : '<p class="sheet-text">No playlists you own or collaborate on. Paste a link instead.</p>';
-  } catch {
-    const el = document.getElementById('pl-list');
-    if (el) el.innerHTML = '<p class="sheet-text">Couldn’t load playlists. Paste a link instead.</p>';
-  }
-}
-
-function setPlaylist(pl) {
-  editing().playlist = pl;
-  saveWorkouts();
-  closeSheet();
-  render();
 }
 
 // ---------- Actions ----------
@@ -334,20 +284,11 @@ export const editorActions = {
     saveWorkouts();
     render();
   },
-  'ed-playlist': playlistSheet,
-  'ed-playlist-clear': () => setPlaylist(undefined),
-  'ed-playlist-link': () => {
-    const id = sp.parsePlaylistId(val('pl-link'));
-    if (!id) return showToast('That doesn’t look like a playlist link');
-    setPlaylist({ id, name: 'Spotify playlist' });
-  },
-  'ed-playlist-pick': (el) => setPlaylist({ id: el.dataset.id, name: el.dataset.name }),
   'ed-restore': () =>
     confirmSheet('Restore original?', 'This replaces your edits to this workout with the original plan. History is kept.', 'Restore', 'ed-restore-yes'),
   'ed-restore-yes': () => {
     const w = editing();
     const orig = structuredClone(DEFAULT_WORKOUTS.find((d) => d.id === w.id));
-    orig.playlist = w.playlist;
     state.workouts[state.workouts.indexOf(w)] = orig;
     saveWorkouts();
     closeSheet();

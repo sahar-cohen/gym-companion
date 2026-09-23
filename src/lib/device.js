@@ -26,7 +26,7 @@ export function keepAwake(on) {
 
 document.addEventListener('visibilitychange', acquire);
 
-// iOS: by default a page's Web Audio can stop Spotify. "transient" makes cues
+// iOS: by default a page's Web Audio can stop your music app (e.g. Spotify). "transient" makes cues
 // mix over other audio (briefly ducking it) and respect the silent switch.
 try {
   if (navigator.audioSession) navigator.audioSession.type = 'transient';

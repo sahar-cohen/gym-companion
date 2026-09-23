@@ -8,7 +8,6 @@ const DEFAULT_SETTINGS = {
   vibrate: true,
   voice: true,
   theme: 'system',
-  spotifyClientId: '',
 };
 
 function loadWorkouts() {
@@ -28,7 +27,6 @@ export const state = {
   hintSeen: load('hintSeen', false),
   installDismissed: load('installDismissed', false),
   toast: null,
-  spotify: { connected: false, user: null, playback: null, error: null },
 };
 
 let renderFn = () => {};

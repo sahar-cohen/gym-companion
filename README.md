@@ -2,7 +2,7 @@
 
 A phone-first workout tracker. Pick a workout, then follow it one exercise at a
 time with a looping 3D demo, highlighted muscles, weight/rep logging, and an
-automatic rest timer with a voice coach. Spotify controls are built in.
+automatic rest timer with a voice coach.
 Installable as a PWA and works offline.
 
 ## Features
@@ -12,8 +12,7 @@ Installable as a PWA and works offline.
 - Rest timer (auto, ±15 s remembered per exercise), supersets, skip/jump
 - Voice coach: a recorded male voice (ElevenLabs "Adam") announces exercises, rest and the last 3 seconds; works offline
 - Summary: time, sets, volume, personal bests, and a 3D body map
-- Editor: add or edit workouts and exercises, supersets, demo, muscles, playlist
-- Spotify: now playing, play/pause/skip, and auto-start a playlist per workout
+- Editor: add or edit workouts and exercises, supersets, demo, muscles
 - Backup: export/import all data as a JSON file (Settings)
 
 ## Run locally
@@ -36,9 +35,9 @@ What iOS allows a web app, and how this app works around it:
 
 | iOS limit | What the app does |
 |---|---|
-| Apps in the background are paused, so no alert when rest ends while you're in another app | Music controls live inside the app, so you don't need to leave it. The timer runs off timestamps, so it's correct when you come back ("Rest ended 0:40 ago"). |
+| Apps in the background are paused, so no alert when rest ends while you're in another app | The timer runs off timestamps, so it's correct when you come back ("Rest ended 0:40 ago"). |
 | No vibration API | Haptic tick on taps (iOS 17.4–26.4); a full-screen **Go** flash plus sound and voice when rest ends |
-| Web audio can stop Spotify | Audio session set to "transient": cues play over your music and briefly lower it |
+| Web audio can stop your music app | Audio session set to "transient": cues play over your music and briefly lower it |
 | Silent switch mutes web sounds | The voice coach and the visual flash still work. Turn the ringer on for the chime. |
 
 ## Coach voice
@@ -50,25 +49,6 @@ Exercises without a recording (e.g. ones added in the editor) fall back to the
 phone's built-in voice. To add recordings for new exercises, add lines to the
 script, generate them with the same voice, save as `public/voice/<key>.mp3`
 (slash → underscore) and regenerate `src/data/voice-clips.js`.
-
-## Spotify setup (one time, ~3 minutes)
-
-Spotify requires every app to have its own Client ID. Since February 2026,
-development-mode apps need the owner to have **Premium** and allow up to 5 users.
-Without Premium you get "now playing" only.
-
-1. Go to <https://developer.spotify.com/dashboard> → **Create app**.
-2. Name: `Gym Companion`. APIs: **Web API**. Redirect URI: your app URL exactly,
-   e.g. `https://sahar-cohen.github.io/gym-companion/` (for local dev: `http://127.0.0.1:5173/`;
-   Spotify rejects `localhost`).
-3. Copy the **Client ID**, then either:
-   - paste it in the app under **Settings → Spotify → Client ID**, or
-   - for GitHub Pages builds, add a repo variable `SPOTIFY_CLIENT_ID`
-     (Settings → Secrets and variables → Actions → Variables), or
-   - locally, put `VITE_SPOTIFY_CLIENT_ID=...` in `.env.local`.
-4. In the app: **Settings → Spotify → Connect**. Pick a playlist per workout in the editor.
-
-Open the Spotify app once before a workout so your phone shows up as a device.
 
 ## File structure
 
@@ -88,10 +68,9 @@ src/
   lib/session.js           Workout flow: sets, supersets, rest, skipping
   lib/history.js           Logged sets, "last time", progress series, PRs
   lib/voice.js             Voice coach (speechSynthesis)
-  lib/spotify.js           Spotify PKCE login + player API
   lib/storage.js           localStorage wrapper (all access try/catch)
   lib/device.js            Wake lock, sound, haptics, iOS audio session
-  ui/                      icons, sheets, chart, Spotify mini player
+  ui/                      icons, sheets, chart
   three/figure.js          Procedural mannequin + two-bone IK
   three/animations.js      One pose function per exercise
   three/props.js           Benches, cables, bars, dumbbells
