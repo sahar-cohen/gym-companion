@@ -39,7 +39,7 @@ function lastTimeText(ex) {
   const all = last.sets.map((x) => x.r).join(', ');
   const same = last.sets.every((x) => x.w === top.w);
   const main = ex.bodyweight || !top.w ? `${all} reps` : same ? `${fmtKg(top.w)} kg × ${all}` : last.sets.map((x) => setLabel(ex, x)).join(', ');
-  return `${main} · ${daysAgo(last.at)}`;
+  return { short: `Last ${setLabel(ex, top)}`, full: `${main}, ${daysAgo(last.at)}` };
 }
 
 function blockOfIndex(w, i) {
@@ -169,7 +169,6 @@ export function renderWorkout(app) {
         .map((v) => `<button data-action="variant" data-ex="${ex.id}" data-v="${v.id}" class="${v.id === ex.variantId ? 'is-on' : ''}">${esc(v.label)}</button>`)
         .join('')}</div>`
     : '';
-  const chips = (ids, cls) => ids.map((m) => `<span class="mchip ${cls}">${esc(muscleName(m))}</span>`).join('');
 
   app.innerHTML = `
     <div class="screen workout ${s.rest ? 'is-resting' : ''}">
@@ -189,48 +188,41 @@ export function renderWorkout(app) {
 
       <main class="ex">
         <div class="ex-head">
-          <div class="eyebrow">${ss ? `<span class="ss-badge">Superset ${ss}</span>` : ''}Exercise ${i + 1} of ${n}</div>
+          <div class="eyebrow">
+            <span class="eyebrow-main">${ss ? `<span class="ss-badge">${ss}</span>` : ''}${i + 1} of ${n}</span>
+            <span class="eyebrow-next">${nextName ? `Then ${esc(nextName)}` : 'Last exercise'}</span>
+          </div>
           <h1 class="ex-name">${esc(ex.name)}</h1>
           <div class="ex-meta">
             <span class="ex-dose">${ex.sets} × ${esc(ex.reps)}</span>
             ${ex.repsNote ? `<span class="ex-note">${esc(ex.repsNote)}</span>` : ''}
             ${ex.weight ? `<span class="wchip">${fmtKg(ex.weight)} kg</span>` : ''}
+            ${last ? `<button class="lasttime" data-action="history" data-ex="${ex.id}" aria-label="History. Last time ${esc(last.full)}">${icon.chart}<span>${esc(last.short)}</span></button>` : ''}
           </div>
-          <button class="lasttime" data-action="history" data-ex="${ex.id}">
-            ${icon.chart}<span>${last ? `Last time: <b>${esc(last)}</b>` : 'First time: no history yet'}</span>
-          </button>
         </div>
 
         <div class="stage">
           <div class="stage-canvas" id="stage-canvas"></div>
           <div class="stage-top">
-            ${ex.confirm ? `<button class="flag" data-action="flag">${icon.flag}<span>Confirm with coach</span></button>` : '<span></span>'}
+            ${ex.confirm ? `<button class="flag" data-action="info">${icon.flag}<span>Confirm with coach</span></button>` : '<span></span>'}
             ${variantSwitch}
           </div>
-          ${state.hintSeen ? '' : `<div class="stage-hint" id="stage-hint">${icon.rotate}<span>Drag to rotate · pinch to zoom</span></div>`}
-          <button class="icon-btn stage-reset" data-action="reset-view" aria-label="Reset view">${icon.reset}</button>
+          ${state.hintSeen ? '' : `<div class="stage-hint" id="stage-hint">${icon.rotate}<span>Drag to rotate</span></div>`}
+          <div class="stage-bottom">
+            <button class="info-pill" data-action="info">
+              <span class="legend-key key-primary"></span>
+              <span class="info-pill-text">${esc(ex.primary.map(muscleName).join(', '))}</span>
+              <span class="info-pill-more">Form tips</span>
+            </button>
+            <button class="icon-btn stage-reset" data-action="reset-view" aria-label="Reset view">${icon.reset}</button>
+          </div>
         </div>
-
-        <div class="legend">
-          <div class="legend-row"><span class="legend-key key-primary"></span><span class="legend-label">Primary</span>${chips(ex.primary, 'is-primary')}</div>
-          ${ex.secondary?.length ? `<div class="legend-row"><span class="legend-key key-secondary"></span><span class="legend-label">Secondary</span>${chips(ex.secondary, 'is-secondary')}</div>` : ''}
-        </div>
-        ${ex.confirm ? `<p class="confirm-note" id="confirm-note" hidden>${icon.flag}<span>${esc(ex.confirm)}</span></p>` : ''}
-        ${ex.cues?.length ? `<ol class="cues">${ex.cues.map((c) => `<li>${esc(c)}</li>`).join('')}</ol>` : ''}
       </main>
 
       <footer class="dock">
         ${restSheet(w, s)}
         ${s.rest ? '' : logger(ex, i)}
         <div class="sets" style="--n:${ex.sets}">${setButtons(ex, i, s)}</div>
-        ${
-          s.rest
-            ? ''
-            : `<div class="upnext">
-                <span>${doneCount(s, i) ? `${doneCount(s, i)} of ${ex.sets} done` : 'Tap a set when done'}</span>
-                <span class="upnext-next">${nextName ? `Then: <b>${esc(nextName)}</b>` : 'Last exercise'}</span>
-              </div>`
-        }
         <nav class="navrow">
           <button class="nav-btn" data-action="prev" ${i === 0 ? 'disabled' : ''} aria-label="Previous exercise">${icon.prev}<span>Prev</span></button>
           <button class="nav-btn" data-action="skip" aria-label="Skip exercise">${icon.skip}<span>Skip</span></button>
@@ -420,6 +412,25 @@ function historySheet(exId) {
   );
 }
 
+// ---------- Muscles & form ----------
+
+function infoSheet() {
+  const w = currentWorkout();
+  const ex = resolve(w.exercises[state.session.exIndex]);
+  const chips = (ids, cls) => ids.map((m) => `<span class="mchip ${cls}">${esc(muscleName(m))}</span>`).join('');
+  const last = lastTimeText(ex);
+  openSheet(`
+    ${sheetHead(esc(ex.name))}
+    ${ex.confirm ? `<p class="confirm-note">${icon.flag}<span><b>Confirm with coach.</b> ${esc(ex.confirm)}</span></p>` : ''}
+    ${ex.cues?.length ? `<h3 class="sheet-sub">Form</h3><ol class="cues">${ex.cues.map((c) => `<li>${esc(c)}</li>`).join('')}</ol>` : ''}
+    <h3 class="sheet-sub">Muscles</h3>
+    <div class="legend">
+      <div class="legend-row"><span class="legend-key key-primary"></span><span class="legend-label">Primary</span>${chips(ex.primary, 'is-primary')}</div>
+      ${ex.secondary?.length ? `<div class="legend-row"><span class="legend-key key-secondary"></span><span class="legend-label">Secondary</span>${chips(ex.secondary, 'is-secondary')}</div>` : ''}
+    </div>
+    <button class="btn btn-ghost btn-block sheet-gap" data-action="history" data-ex="${ex.id}">${icon.chart}<span>${last ? `History · last time ${esc(last.full)}` : 'History'}</span></button>`);
+}
+
 // ---------- Overview ----------
 
 function overviewSheet() {
@@ -512,10 +523,7 @@ export const workoutActions = {
     render();
   },
   'reset-view': () => getViewer().resetView(),
-  flag: () => {
-    const n = document.getElementById('confirm-note');
-    if (n) n.hidden = !n.hidden;
-  },
+  info: infoSheet,
   history: (el) => historySheet(el.dataset.ex),
   'voice-toggle': () => {
     state.settings.voice = !state.settings.voice;
