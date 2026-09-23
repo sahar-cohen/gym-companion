@@ -8,7 +8,7 @@ import { keepAwake, chime, tick, buzz, haptic } from '../lib/device.js';
 import { lastFor, seriesFor, volume, toRecord, addRecord, bestBefore } from '../lib/history.js';
 import { coach, stop as stopCoach, preload as preloadCoach } from '../lib/coach.js';
 import { icon } from '../ui/icons.js';
-import { openSheet, closeSheet, confirmSheet, sheetHead } from '../ui/sheets.js';
+import { openSheet, closeSheet, confirmSheet, sheetHead, tintStatusBar } from '../ui/sheets.js';
 import { progressChart } from '../ui/chart.js';
 import { playerHTML, startPolling, stopPolling, autoStartPlaylist } from '../ui/player.js';
 
@@ -81,8 +81,16 @@ function flash(title, sub) {
     'beforeend',
     `<div class="go-flash" data-action="dismiss-flash" role="alert"><b>${esc(title)}</b><span>${esc(sub)}</span></div>`,
   );
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  tintStatusBar(accent); // the orange should reach the top edge too
   setTimeout(() => document.querySelector('.go-flash')?.classList.add('is-out'), 1600);
-  setTimeout(() => document.querySelector('.go-flash')?.remove(), 2100);
+  setTimeout(removeFlash, 2100);
+}
+
+function removeFlash() {
+  if (!document.querySelector('.go-flash')) return;
+  document.querySelector('.go-flash').remove();
+  tintStatusBar();
 }
 
 // ---------- Render ----------
@@ -620,7 +628,7 @@ export const workoutActions = {
     else say('voiceOn');
     render();
   },
-  'dismiss-flash': () => document.querySelector('.go-flash')?.remove(),
+  'dismiss-flash': removeFlash,
 };
 
 // Weight/reps typed directly into the logger.

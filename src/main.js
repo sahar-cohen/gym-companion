@@ -8,7 +8,7 @@ import { state, setRender, render, validSession, saveSettings } from './app/stat
 import { existingViewer } from './app/viewer.js';
 import { keepAwake } from './lib/device.js';
 import { handleRedirect } from './lib/spotify.js';
-import { closeSheet, resetScroll } from './ui/sheets.js';
+import { closeSheet, resetScroll, setBaseTheme } from './ui/sheets.js';
 import { playerActions, initSpotify } from './ui/player.js';
 import { renderHome, homeActions } from './screens/home.js';
 import { renderWorkout, leaveWorkout, workoutActions, onLogInput, clockTick, showToast } from './screens/workout.js';
@@ -26,7 +26,7 @@ const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
 function applyTheme() {
   const t = state.settings.theme === 'system' ? (darkQuery.matches ? 'dark' : 'light') : state.settings.theme;
   document.documentElement.dataset.theme = t;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'dark' ? '#0f1012' : '#f3f2ee');
+  setBaseTheme(t === 'dark' ? '#0f1012' : '#f3f2ee');
   existingViewer()?.setTheme(t);
   existingViewer()?.renderOnce();
 }

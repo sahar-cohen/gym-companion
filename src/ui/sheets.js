@@ -2,11 +2,34 @@ import { icon } from './icons.js';
 
 const root = () => document.getElementById('sheet');
 
+// iOS paints the status-bar strip in the theme colour, outside the page, so
+// overlays can't cover it. Tint it to match whatever is on top instead.
+const SCRIM = 0.4; // keep in sync with .sheet-scrim
+let baseTheme = null;
+const themeMeta = () => document.querySelector('meta[name="theme-color"]');
+
+export function setBaseTheme(color) {
+  baseTheme = color;
+  if (root()?.hidden !== false) themeMeta()?.setAttribute('content', color);
+  else tintStatusBar(dimmed(color));
+}
+
+export function tintStatusBar(color) {
+  themeMeta()?.setAttribute('content', color ?? baseTheme);
+}
+
+function dimmed(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (shift) => Math.round(((n >> shift) & 255) * (1 - SCRIM));
+  return `#${[16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, '0')).join('')}`;
+}
+
 export function openSheet(html, { tall = false } = {}) {
   const r = root();
   r.innerHTML = `<div class="sheet-scrim" data-action="close-sheet"></div>
     <div class="sheet-panel ${tall ? 'is-tall' : ''}" role="dialog" aria-modal="true">${html}</div>`;
   r.hidden = false;
+  if (baseTheme) tintStatusBar(dimmed(baseTheme));
   requestAnimationFrame(() => r.classList.add('is-open'));
   bindSwipeDown(r.querySelector('.sheet-panel'));
   // Touches on the dimmed backdrop must not scroll the page behind it.
@@ -52,6 +75,7 @@ export function closeSheet() {
   r.classList.remove('is-open');
   r.hidden = true;
   r.innerHTML = '';
+  tintStatusBar();
   resetScroll();
 }
 
