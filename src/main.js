@@ -43,6 +43,7 @@ setRender(() => {
   if (state.screen === 'done' && !state.summary) state.screen = 'home';
   if (state.screen === 'editor' && !state.editor) state.screen = 'home';
   lastScreen = state.screen;
+  document.body.dataset.screen = state.screen;
 
   if (state.screen === 'workout') renderWorkout(app);
   else if (state.screen === 'done') renderSummary(app);

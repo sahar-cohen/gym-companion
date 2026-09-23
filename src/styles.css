@@ -104,7 +104,17 @@ h2 {
 
 .screen {
   min-height: 100dvh;
-  padding: calc(env(safe-area-inset-top) + 12px) var(--gutter) 0;
+  /* Extra room below the status bar: iOS 26 blurs a band just under it. */
+  padding: calc(env(safe-area-inset-top) + 22px) var(--gutter) 0;
+}
+/* The workout screen never scrolls as a page (scrolling triggers the blur). */
+body[data-screen='workout'] {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+body[data-screen='workout'] #app {
+  position: fixed;
+  inset: 0;
 }
 
 .eyebrow {

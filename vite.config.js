@@ -19,8 +19,10 @@ export default defineConfig({
         scope: base,
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#0F1012',
-        theme_color: '#0F1012',
+        // Match the light page background: iOS 26 blurs the status-bar band
+        // when it can't sample one flat colour there.
+        background_color: '#f3f2ee',
+        theme_color: '#f3f2ee',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
