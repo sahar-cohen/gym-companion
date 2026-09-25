@@ -4,7 +4,7 @@ A motion-graphics teaser for the app, rendered from code: the real 3D mannequin,
 animations and props from `src/three/`, the brand's type and colours, and a score
 synthesised from scratch (plus two lines from the app's recorded coach).
 
-1920×1080, 60 fps, 15 s. Output: `teaser/out/spot-teaser.mp4`.
+1920×1080, 60 fps, 15 s, with sound: [`spot-teaser.mp4`](spot-teaser.mp4) (a render writes a higher-bitrate master to `teaser/out/spot-teaser.mp4`).
 
 ## Structure
 
